@@ -13,7 +13,7 @@ Information Retrieval and Web Analytics, Universitat Pompeu Fabra.
 | part | topic | folder | tag | status |
 |---|---|---|---|---|
 | 1 | Text Processing and Exploratory Data Analysis | [`project_progress/part_1`](project_progress/part_1/) | `IRWA-2026-part-1` | delivered |
-| 2 | Indexing and Evaluation | [`project_progress/part_2`](project_progress/part_2/) | `IRWA-2026-part-2` | in progress |
+| 2 | Indexing and Evaluation | [`project_progress/part_2`](project_progress/part_2/) | `IRWA-2026-part-2` | delivered |
 | 3 | Ranking and Filtering | [`project_progress/part_3`](project_progress/part_3/) | `IRWA-2026-part-3` | — |
 | 4 | RAG, User Interface and Web Analytics | `web_app.py`, [`myapp/`](myapp/) | `IRWA-2026-part-4` | — |
 
@@ -24,7 +24,7 @@ Each part folder contains the report (PDF), the notebook and a short README.
 ```
 data/                     dataset (not in the repository) + validation_labels.csv
 project_progress/part_N/  report, notebook and code of each part
-myapp/search/             search engine code (inverted index + TF-IDF in algorithms.py)
+myapp/search/             web app search code (course template; our engine is plugged in in Part 4)
 web_app.py, templates/,   Flask web application (Part 4, from the course template)
 static/
 requirements.txt          Python dependencies
@@ -78,9 +78,30 @@ pp.preprocess_text("men slim jeans blue")   # ['men', 'slim', 'jean', 'blue']
 
 ## Part 2 — Indexing and Evaluation
 
-*Instructions will be added with the Part 2 delivery.* The inverted index and TF-IDF ranking from Practice
-Session 1, adapted to our products, are already in `myapp/search/algorithms.py`
-(`create_index`, `create_index_tfidf`, `search`, `rank_documents`, `search_tf_idf`).
+1. Check out the delivered version: `git checkout IRWA-2026-part-2`
+2. Run the Part 1 notebook first if `data/processed_corpus.pkl` does not exist yet (see above).
+3. Run the notebook from its folder:
+   ```bash
+   cd project_progress/part_2
+   jupyter notebook IRWA_Part2.ipynb
+   ```
+   Select *Run → Run All Cells* (or `jupyter nbconvert --to notebook --execute --inplace IRWA_Part2.ipynb`). It builds the
+   index (about 10 seconds), ranks the 7 queries and computes the evaluation metrics.
+
+| file (`project_progress/part_2/`) | content |
+|---|---|
+| `irwa_indexing.py` | inverted index with positions, conjunctive (AND) search and TF-IDF ranking (adapted from Practice Session 1) |
+| `irwa_evaluation.py` | P@K, R@K, AP@K, F1@K, MAP, MRR and NDCG (adapted from Practice Session 2) |
+| `test_queries_labels.csv` | our relevance judgments for the top 20 results of our five test queries |
+
+```python
+import irwa_preprocessing as pp   # project_progress/part_1
+import irwa_indexing as ix        # project_progress/part_2
+index, tf, df, idf = ix.create_index_tfidf(ix.build_docs_terms(corpus, "all_terms"))
+ix.search_tf_idf(pp.preprocess_text("men slim jeans blue"), index, tf, idf)   # [(pid, score), ...]
+```
+
+More details in the [Part 2 README](project_progress/part_2/README.md).
 
 ## Web application (Part 4)
 

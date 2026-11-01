@@ -1,0 +1,254 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage[margin=2.3cm]{geometry}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[colorlinks=true,linkcolor=blue!50!black]{hyperref}
+
+\setlist{nosep,leftmargin=*}
+\setlength{\parskip}{0.5em}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+
+\title{\textbf{IRWA Final Project --- Part 2}\\[0.2em]\large Indexing and Evaluation}
+\author{\begin{tabular}{ccc}Èric Amargant & Josep Cardona & Jan Balayla\\\small u231867 -- NIA 284566 & \small u231747 -- NIA 284888 & \small u233694 -- NIA 286572\end{tabular}}
+\date{November 2026}
+
+\begin{document}
+\maketitle
+
+In this part we index the 28,080 products processed in Part~1, rank them with TF-IDF and evaluate the results.
+All the Part~2 code is in \texttt{project\_progress/part\_2/}: the notebook \texttt{IRWA\_Part2.ipynb}, the index and
+ranking in \texttt{irwa\_indexing.py}, the metrics in \texttt{irwa\_evaluation.py}, and our relevance labels in
+\texttt{test\_queries\_labels.csv}.
+
+\textbf{GitHub repository:} \url{https://github.com/Janbacer/Final_Project_IRWA}\\
+\textbf{Tag:} \texttt{IRWA-2026-part-2}\\
+The \texttt{README.md} in the main folder of the repository explains how to run the code.
+
+\section{Indexing}
+
+\subsection{Inverted index (point 1)}
+We do not clean the text again: the notebook loads \texttt{data/processed\_corpus.pkl} from Part~1 and indexes the
+field \texttt{all\_terms} (title + product details + sub\_category + brand + description). Queries are cleaned with the
+same Part~1 function, \texttt{preprocess\_text}, so query words and product words match.
+
+Each term points to the products that contain it and to its positions in each product:
+\texttt{\{term: [[pid, [positions]], \ldots]\}}. Products are identified by their \texttt{pid}.
+The index has \textbf{6,343 terms} and 857,225 postings, and it is built in a few seconds.
+
+Queries are \textbf{conjunctive (AND)}: \texttt{search} intersects the posting lists of the query terms, so a product
+is returned only if it contains every query term. If one term is not in the index, nothing is returned.
+
+\subsection{Test queries (point 2)}
+We looked at the most frequent terms in the \textbf{titles}, because titles are written the way a shopper searches:
+gender (\texttt{men}, \texttt{women}), product type (\texttt{tshirt}, \texttt{shirt}, \texttt{pant}, \texttt{jean}),
+colour (\texttt{blue}, \texttt{black}, \texttt{white}) and style (\texttt{print}, \texttt{slim}).
+
+Our first five queries used only these words (e.g.\ \emph{men white polo t-shirt}, \emph{women cotton kurta}). Almost
+every product in their top~20 was relevant (we labelled 60 of them, all relevant), so simple keyword matching was
+enough and the evaluation would not show anything. So each final query \textbf{starts from popular terms and adds one
+constraint that keyword matching handles badly}, while staying a realistic query:
+
+\begin{table}[H]
+\centering\small
+\begin{tabularx}{\textwidth}{@{}c l Y r@{}}
+\toprule
+\# & query & what makes it hard & matches\\
+\midrule
+3 & men white formal shirt slim fit & four constraints; \texttt{formal} is often only in the description or the details & 25\\
+4 & women floral print shirt & unstitched ``Shirt Fabric'' uses the same words as a shirt & 35\\
+5 & women black track pants with zip pockets & zip pockets are only mentioned in the description & 11\\
+6 & women pure cotton t-shirt pack of 3 & Part~1 removes numbers, so the ``3'' is lost & 140\\
+7 & black running shoes for men & the sub\_category ``Men's Footwear'' also contains women's shoes & 28\\
+\bottomrule
+\end{tabularx}
+\caption{Our test queries and their number of AND matches. They are numbered 3--7 because 1 and 2 are the validation
+queries (566 and 225 matches).}
+\end{table}
+
+\subsection{TF-IDF ranking (point 3)}
+Products and queries are represented with TF-IDF weights: $tf = \text{count} / \lVert D \rVert$ (term count divided by the Euclidean norm of all
+the term counts of the product) and $idf = \log(N/df)$. The query gets the same weights, and the score of a product is
+the dot product of the query and product vectors. The AND matches are sorted by score; ties are broken by \texttt{pid}.
+
+First observations:
+\begin{itemize}
+  \item Many products have exactly the same score: in Part~1 we saw that 87\% of the products share their title with
+        another one (colour variants, different sellers).
+  \item \emph{pack of 3}: packs of 2 and 5 also match, and a pack of 5 ranks first.
+  \item \emph{women floral print shirt}: 7 of the top~20 are unstitched shirt fabric.
+  \item \emph{black running shoes for men}: 9 of the top~20 are women's shoes.
+\end{itemize}
+
+\section{Evaluation}
+
+\subsection{Evaluation metrics (point 1)}
+We implemented the following metrics. For one query, with $rel_i = 1$ if the product
+at rank $i$ is relevant and $R$ the number of relevant products:
+\begin{itemize}
+  \item \textbf{P@K}: relevant products in the top $K$, divided by $K$.
+  \item \textbf{R@K}: relevant products in the top $K$, divided by $R$.
+  \item \textbf{AP@K}: sum of P@$i$ at each rank $i \le K$ that holds a relevant product, divided by the number of relevant products found in the top $K$.
+  \item \textbf{F1@K}: harmonic mean of P@K and R@K.
+  \item \textbf{MAP}: mean of AP@K over the queries.
+  \item \textbf{MRR}: mean over the queries of $1/\text{rank}$ of the first relevant product (0 if none in the top $K$).
+  \item \textbf{NDCG@K}: $\sum_{i \le K} (2^{rel_i}-1)/\log_2(i+1)$, divided by the same sum for the ideal ranking.
+\end{itemize}
+
+\textbf{How we evaluate.} Only the labelled products can be evaluated, so for each query we keep the labelled products
+in the order our engine returns them. The AND search can miss relevant products: they cannot appear in the ranking, but
+they still count in $R$ (R@K, F1@K) and in the ideal ranking of NDCG. For query~1, AND returns the 20 labelled products (13 relevant). For query~2 it
+returns 8 of them (6 relevant): it misses 4 relevant products, three \emph{Women} jeans without the word \texttt{men}
+and one \emph{Tapered Fit} jeans without \texttt{slim}.
+
+\subsection{Results on the validation queries (point 2)}
+
+\begin{table}[H]
+\centering\small
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{@{}l ccc ccc ccc@{}}
+\toprule
+ & \multicolumn{3}{c}{$K=5$} & \multicolumn{3}{c}{$K=10$} & \multicolumn{3}{c}{$K=20$}\\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(l){8-10}
+ & Q1 & Q2 & mean & Q1 & Q2 & mean & Q1 & Q2 & mean\\
+\midrule
+P@K     & 1.000 & 0.800 & 0.900 & 1.000 & 0.600 & 0.800 & 0.650 & 0.300 & 0.475\\
+R@K     & 0.385 & 0.400 & 0.392 & 0.769 & 0.600 & 0.685 & 1.000 & 0.600 & 0.800\\
+AP@K    & 1.000 & 1.000 & 1.000 & 1.000 & 0.948 & 0.974 & 0.980 & 0.948 & 0.964\\
+F1@K    & 0.556 & 0.533 & 0.544 & 0.870 & 0.600 & 0.735 & 0.788 & 0.400 & 0.594\\
+RR@K    & 1.000 & 1.000 & 1.000 & 1.000 & 1.000 & 1.000 & 1.000 & 1.000 & 1.000\\
+NDCG@K  & 1.000 & 0.869 & 0.934 & 1.000 & 0.716 & 0.858 & 0.995 & 0.716 & 0.855\\
+\bottomrule
+\end{tabular}
+\caption{Validation queries. Mean of AP@K = MAP@K, mean of RR@K = MRR@K.}
+\end{table}
+
+\subsection{Our relevance judgments (point 3a)}
+We labelled the top~20 results of each of our queries (query~5 has only 11 matches), 91 products in total. A product is
+relevant (1) if it is the product type asked, for the gender asked, and meets every attribute of the query. Price,
+rating, stock and brand are ignored. Decisions for each query:
+
+\begin{table}[H]
+\centering\small
+\begin{tabularx}{\textwidth}{@{}c Y r@{}}
+\toprule
+\# & relevant only if & relevant\\
+\midrule
+3 & a formal shirt (not casual, not trousers), slim fit, with white among its colours & 5 / 20\\
+4 & a women's shirt with a floral print (not shirt fabric, not a T-shirt) & 12 / 20\\
+5 & women's black track pants with zip pockets (not men's, not trousers) & 8 / 11\\
+6 & exactly a pack of 3 & 6 / 20\\
+7 & men's running shoes with black among their colours (not lace-ups, loafers or slip-ons) & 5 / 20\\
+\bottomrule
+\end{tabularx}
+\caption{Labelling decisions and number of relevant products.}
+\end{table}
+
+Only the judged products are known, so $R$ is the number of relevant products in the top~20 and R@20 would always be
+1. We report $K = 5$ and $10$:
+
+\begin{table}[H]
+\centering\small
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{@{}l cccccc cccccc@{}}
+\toprule
+ & \multicolumn{6}{c}{$K=5$} & \multicolumn{6}{c}{$K=10$}\\
+\cmidrule(lr){2-7}\cmidrule(l){8-13}
+query & P & R & AP & F1 & RR & NDCG & P & R & AP & F1 & RR & NDCG\\
+\midrule
+3    & 0.600 & 0.600 & 0.917 & 0.600 & 1.000 & 0.699 & 0.300 & 0.600 & 0.917 & 0.400 & 1.000 & 0.699\\
+4    & 0.800 & 0.333 & 1.000 & 0.471 & 1.000 & 0.869 & 0.900 & 0.750 & 0.928 & 0.818 & 1.000 & 0.915\\
+5    & 0.800 & 0.500 & 0.950 & 0.615 & 1.000 & 0.854 & 0.700 & 0.875 & 0.909 & 0.778 & 1.000 & 0.891\\
+6    & 0.600 & 0.500 & 0.589 & 0.545 & 0.500 & 0.515 & 0.600 & 1.000 & 0.598 & 0.750 & 0.500 & 0.746\\
+7    & 0.200 & 0.200 & 0.500 & 0.200 & 0.500 & 0.214 & 0.300 & 0.600 & 0.341 & 0.400 & 0.500 & 0.414\\
+\midrule
+mean & 0.600 & 0.427 & 0.791 & 0.486 & 0.800 & 0.630 & 0.560 & 0.765 & 0.739 & 0.629 & 0.800 & 0.733\\
+\bottomrule
+\end{tabular}
+\caption{Our test queries. The mean row gives MAP@K (AP) and MRR@K (RR).}
+\end{table}
+
+\subsection{Comments on the metrics (point 3b)}
+\begin{itemize}
+  \item \textbf{P@K} tells how much of what the user sees is useful. It ignores the order inside the top $K$ and the
+        relevant products that were not returned. Query~7 has P@10 = 0.300: most of the top~10 are women's shoes or
+        other shoe types.
+  \item \textbf{R@K} tells how many of the relevant products we found. It needs to know all the relevant products, so
+        it depends on the judgments: for query~2 it never passes 0.600 because AND misses 4 relevant products. For our
+        queries it is relative to the judged top~20 only, so it is optimistic.
+  \item \textbf{AP@K} rewards relevant products at the top. As defined above, it only averages over the relevant
+        products \emph{found}, so it ignores the missed ones: query~2 has AP@10 = 0.948 with R@10 = 0.600,
+        and query~3 has AP@10 = 0.917 with P@10 = 0.300 (3 relevant products at ranks 1, 2 and 4, then nothing).
+  \item \textbf{F1@K} balances P@K and R@K, so it is low when either of them is low (query~2: 0.600).
+  \item \textbf{MAP} and \textbf{MRR} summarise all the queries. MRR only looks at the first relevant product: it is
+        1.000 for the validation queries and 0.800 for ours, because queries~6 and~7 start with a non-relevant product
+        (a pack of~5, a lace-up shoe).
+  \item \textbf{NDCG@K} uses the position of every relevant product and compares with the best possible ranking. It
+        could use graded labels; with binary labels it behaves like a position-aware precision. Because the ideal
+        ranking includes the missed products, it shows the problem of query~2 (0.716) that AP hides.
+\end{itemize}
+
+\textbf{Analysis.} The validation queries look very good (MAP@10 = 0.974), but these numbers only describe the order
+\emph{among} the 20 labelled products: in the full ranking of query~1 the labelled products are spread between ranks~6
+and~543. Our harder queries give a more realistic picture (MAP@10 = 0.739, mean P@10 = 0.560). Queries~4 and~5 work
+well: most of their matches are the product asked. Queries~3, 6 and~7 fail because the words match, but the product
+does not meet the need: a casual shirt that mentions ``formal'' in its details, a pack of~5, women's shoes.
+
+\subsection{Limitations and proposed solutions (point 3c)}
+\begin{table}[H]
+\centering\small
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.2cm} Y Y@{}}
+\toprule
+problem & example & possible solution\\
+\midrule
+AND is too strict (retrieval) & query~2: 4 relevant products are lost because one word is missing (\emph{Women}
+jeans, \emph{Tapered Fit} without ``slim'') & rank all products that match most of the terms (OR + ranking, as with
+BM25 in Part~3); add synonyms (skinny, tapered $\approx$ slim)\\
+All fields count the same (field types) & query~3: a ``Casual Shirt'' matches because its details say ``Model Name:
+Formal Shirt''; for query~5, ``zip'' is only in descriptions & index the fields separately and give more weight to the
+title and details than to the description\\
+Gender and colour words in other fields & query~7: the sub\_category ``Men's Footwear'' also contains women's shoes;
+brands like \emph{True Blue} or \emph{Black Beatle} contain colour words & take the gender from the title or
+\emph{Ideal For}; use sub\_category and brand as filters, not as text\\
+Product type is not checked & query~4: unstitched ``Shirt Fabric'' ranks among the shirts & use the product type of
+the details (\emph{Type}, \emph{Generic Name}) as a filter, or require the product word in the title\\
+Numbers are removed (query formulation) & query~6: ``pack of 3'' becomes ``pack'', so packs of 2 and 5 match & keep
+quantities such as ``pack of 3'' as a structured field and filter on it\\
+Ties and duplicates (ranking quality) & many identical titles get the same score; their order is arbitrary & break ties
+with rating, discount or stock (Part~3); group colour variants\\
+Word counts and text length (ranking quality) & two ``Slim Men Blue Jeans'' score 1.893 and 1.025 only because one
+repeats the query words more often & BM25 limits the effect of repeated words and normalises length
+better\\
+Positions are not used (indexing) & ``full sleeve'' and ``track pants'' are matched as separate words & phrase queries
+with the positions already stored in the index\\
+\bottomrule
+\end{tabularx}
+\caption{Main limitations of the current system.}
+\end{table}
+
+\section{Assumptions}
+\begin{itemize}
+  \item The relevance labels of queries~3--7 are our own judgments, following the criteria of Section~2.3.
+  \item Products that were not labelled are not used in the evaluation (their relevance is unknown).
+  \item Products with the same score are ranked by \texttt{pid}, and the metrics evaluate exactly that order.
+  \item AP@K is divided by the relevant products found in the top $K$, not by all the relevant products.
+\end{itemize}
+
+\section*{Use of AI tools}
+We used AI tools to revise grammar and improve the clarity of our writing, but not to develop or write the core theoretical 
+concepts. In coding, we used AI to correct errors and refactor code, always starting from an initial implementation that we 
+designed ourselves in the practical sessions. We also used it to test the code (checking the metrics against manual calculations) and to build a small 
+web page that let us label the results of our test queries faster. The relevance labels are our own, assigned by hand.
+
+
+\end{document}
