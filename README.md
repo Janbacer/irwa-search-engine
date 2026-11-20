@@ -14,7 +14,7 @@ Information Retrieval and Web Analytics, Universitat Pompeu Fabra.
 |---|---|---|---|---|
 | 1 | Text Processing and Exploratory Data Analysis | [`project_progress/part_1`](project_progress/part_1/) | `IRWA-2026-part-1` | delivered |
 | 2 | Indexing and Evaluation | [`project_progress/part_2`](project_progress/part_2/) | `IRWA-2026-part-2` | delivered |
-| 3 | Ranking and Filtering | [`project_progress/part_3`](project_progress/part_3/) | `IRWA-2026-part-3` | — |
+| 3 | Ranking and Filtering | [`project_progress/part_3`](project_progress/part_3/) | `IRWA-2026-part-3` | delivered |
 | 4 | RAG, User Interface and Web Analytics | `web_app.py`, [`myapp/`](myapp/) | `IRWA-2026-part-4` | — |
 
 Each part folder contains the report (PDF), the notebook and a short README.
@@ -34,8 +34,8 @@ requirements.txt          Python dependencies
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/Janbacer/Final_Project_IRWA.git
-   cd Final_Project_IRWA
+   git clone https://github.com/Janbacer/irwa-search-engine.git
+   cd irwa-search-engine
    ```
 2. Copy `fashion_products_dataset.json` (from Aula Global) into the `data/` folder.
    It is not in the repository because of its size (66 MB).
@@ -102,6 +102,43 @@ ix.search_tf_idf(pp.preprocess_text("men slim jeans blue"), index, tf, idf)   # 
 ```
 
 More details in the [Part 2 README](project_progress/part_2/README.md).
+
+## Part 3 — Ranking and Filtering
+
+1. Check out the delivered version: `git checkout IRWA-2026-part-3`
+2. Install the requirements again if your environment comes from Part 2: Part 3 adds `gensim` (word2vec).
+3. Run the Part 1 notebook first if `data/processed_corpus.pkl` does not exist yet (see above).
+4. Run the notebook from its folder:
+   ```bash
+   cd project_progress/part_3
+   jupyter notebook IRWA_Part3.ipynb
+   ```
+   Select *Run → Run All Cells* (or `jupyter nbconvert --to notebook --execute --inplace IRWA_Part3.ipynb`). It takes
+   about one minute (half of it is training word2vec) and writes the figures to `figures/` and the result tables to
+   `results/`.
+
+All the rankings are in `project_progress/part_3/irwa_ranking.py`. The ranking method is selected with the `method`
+argument of `Ranker.search`; every method ranks the same products (the conjunctive AND matches of Part 2):
+
+| `method` | ranking |
+|---|---|
+| `"tfidf"` | TF-IDF vectors + cosine similarity |
+| `"bm25"` | Okapi BM25 (`k1 = 1.2`, `b = 0.75`; change them with `Ranker(corpus, k1=..., b=...)`) |
+| `"ours"` | our score: field-weighted BM25 (BM25F) × title factor × quality factor (rating, discount, stock) |
+| `"word2vec"` | average word2vec vector of the query and of the product + cosine similarity (call `train_word2vec()` first) |
+
+```python
+import pandas as pd
+import irwa_ranking as rk         # project_progress/part_3 (needs part_1 and part_2 in the path)
+corpus = pd.read_pickle("data/processed_corpus.pkl")
+ranker = rk.Ranker(corpus)
+ranker.search("women floral print shirt", method="ours", top_k=10)   # [(pid, score), ...]
+ranker.train_word2vec()            # about 30 s, same model every run (fixed seed)
+ranker.search("women floral print shirt", method="word2vec", top_k=20)
+```
+
+The field weights, the title weight and the quality-factor weights are constants at the top of `irwa_ranking.py`. More details in the
+[Part 3 README](project_progress/part_3/README.md).
 
 ## Web application (Part 4)
 

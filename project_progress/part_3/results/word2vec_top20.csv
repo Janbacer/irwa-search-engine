@@ -1,0 +1,92 @@
+query_id,query,rank,pid,score,is_relevant,title
+1,men white formal shirt slim fit,1,SHTF6VCHUQ8HKQPE,0.903,0,Men Slim Fit Solid Casual Shirt
+1,men white formal shirt slim fit,2,SHTFEBYMF9RTZYKG,0.9027,0,Men Slim Fit Solid Spread Collar Casual Shirt
+1,men white formal shirt slim fit,3,SHTFEBYMGU47WWZG,0.9027,0,Men Slim Fit Solid Spread Collar Casual Shirt
+1,men white formal shirt slim fit,4,SHTFEBYMHVXRHZCZ,0.9027,0,Men Slim Fit Solid Spread Collar Casual Shirt
+1,men white formal shirt slim fit,5,SHTFDYRQRYGTW4PX,0.8667,1,Men Slim Fit Printed Button Down Collar Formal Shirt
+1,men white formal shirt slim fit,6,SHTFDYTZGHNN2JQ9,0.861,0,Men Slim Fit Polka Print Button Down Collar Casual Shirt
+1,men white formal shirt slim fit,7,SHTFW52ZURHFKNTZ,0.8606,1,Men Slim Fit Printed Button Down Collar Formal Shirt
+1,men white formal shirt slim fit,8,SHTFDYMU7MCMFCT9,0.8565,0,Men Slim Fit Geometric Print Button Down Collar Casual Shirt
+1,men white formal shirt slim fit,9,SHTFW52ZMFEJNWYY,0.8519,0,Men Slim Fit Printed Club Collar Casual Shirt
+1,men white formal shirt slim fit,10,TROFYFX6XK4HYZFN,0.8423,0,Slim Fit Men White Cotton Blend Trousers
+1,men white formal shirt slim fit,11,SHTFW52ZMBHJZPYP,0.832,1,Men Slim Fit Printed Spread Collar Formal Shirt
+1,men white formal shirt slim fit,12,SHTFCCRGK52CM7YR,0.8055,0,Men Slim Fit Checkered Spread Collar Formal Shirt
+1,men white formal shirt slim fit,13,SHTF98P8MTY7ZXAZ,0.794,1,Men Slim Fit Solid Spread Collar Formal Shirt
+1,men white formal shirt slim fit,14,SHTF8XMFDHS4WFFT,0.7914,0,Men Regular Fit Checkered Spread Collar Formal Shirt
+1,men white formal shirt slim fit,15,SHTFZTRSN4HXHMHH,0.7898,0,Men Regular Fit Solid Spread Collar Formal Shirt
+1,men white formal shirt slim fit,16,SHTFZTRSPEK26PYJ,0.7898,0,Men Regular Fit Solid Spread Collar Formal Shirt
+1,men white formal shirt slim fit,17,SHTFFVYPMWHZ3SFQ,0.7815,0,Men Slim Fit Checkered Spread Collar Formal Shirt
+1,men white formal shirt slim fit,18,SHTFU73NHNAFBCCZ,0.7762,1,Men Slim Fit Solid Spread Collar Formal Shirt
+1,men white formal shirt slim fit,19,SHTFU73NP63MDZZP,0.7762,1,Men Slim Fit Solid Spread Collar Formal Shirt
+1,men white formal shirt slim fit,20,SHTFU73NTX6N3R63,0.7762,1,Men Slim Fit Solid Spread Collar Formal Shirt
+2,women floral print shirt,1,SHTFHQTAZZVYHZGY,0.8942,1,Women Slim Fit Floral Print Casual Shirt
+2,women floral print shirt,2,SHTFJZC45ZFYGSYH,0.8902,1,Women Slim Fit Floral Print Casual Shirt
+2,women floral print shirt,3,SHTFSYG8TVBV8SUK,0.8623,1,Women Slim Fit Floral Print Casual Shirt
+2,women floral print shirt,4,SHTFTGV4HRGGY4Z7,0.8569,1,Women Regular Fit Floral Print Button Down Collar Casual Shirt
+2,women floral print shirt,5,SHTFTGV4ATUQYVWY,0.8553,1,Women Regular Fit Floral Print Button Down Collar Casual Shirt
+2,women floral print shirt,6,SHTFS6YAFFX5XFFH,0.8545,1,Women Slim Fit Floral Print Casual Shirt
+2,women floral print shirt,7,SHTFTGV4UGTG5HZH,0.854,1,Women Regular Fit Floral Print Button Down Collar Casual Shirt
+2,women floral print shirt,8,SHTFWD49GF2EA3UN,0.8435,1,Women Slim Fit Printed Slim Collar Casual Shirt
+2,women floral print shirt,9,SHTFMRH8WRCFQMYF,0.8345,1,Women Slim Fit Floral Print Spread Collar Casual Shirt
+2,women floral print shirt,10,SHTF4FWJ6UQAHRQM,0.8335,1,Women Regular Fit Floral Print Casual Shirt
+2,women floral print shirt,11,SHTF45DYRFA4M4AZ,0.8326,1,Women Regular Fit Floral Print Spread Collar Casual Shirt
+2,women floral print shirt,12,FABFZU8HREHCNJR5,0.8122,0,"Rayon Printed, Floral Print Shirt Fabric  (Unstitched)"
+2,women floral print shirt,13,SHTFDYMYV7AUKE9R,0.8069,1,Women Slim Fit Floral Print Button Down Collar Casual Shirt
+2,women floral print shirt,14,SHTF47JNQFEFRQHG,0.806,1,Women Regular Fit Printed Button Down Collar Casual Shirt
+2,women floral print shirt,15,SHTF47JNAVU4UMVP,0.8056,1,Women Regular Fit Printed Button Down Collar Casual Shirt
+2,women floral print shirt,16,FABFZU92QEBHMCZB,0.7919,0,"Rayon Floral Print, Self Design Shirt Fabric  (Unstitched)"
+2,women floral print shirt,17,SHTFEQJA48XC5WX4,0.788,1,Women Slim Fit Printed Club Collar Casual Shirt
+2,women floral print shirt,18,SHTFV5GYNPY6EMZS,0.7818,1,Women Slim Fit Floral Print Cut Away Collar Casual Shirt
+2,women floral print shirt,19,FABFZU9YG9FZGWCY,0.7803,0,Rayon Floral Print Shirt Fabric  (Unstitched)
+2,women floral print shirt,20,FABFZFR2ETCKRZJE,0.776,0,Cotton Floral Print Shirt Fabric  (Unstitched)
+3,women black track pants with zip pockets,1,TKPFK5KGEUPYCAUH,0.8425,0,Solid Men Black Track Pants
+3,women black track pants with zip pockets,2,TKPFDT6GHGEYDTAS,0.8199,1,Solid Women Black Track Pants
+3,women black track pants with zip pockets,3,TKPFKFZFXZT5XQYZ,0.798,1,"Solid Women Black, Grey Track Pants"
+3,women black track pants with zip pockets,4,TKPFUBDB8WGRDDYJ,0.7959,1,Solid Women Black Track Pants
+3,women black track pants with zip pockets,5,TKPFWGMH448EGQTF,0.7953,1,Solid Women Black Track Pants
+3,women black track pants with zip pockets,6,TKPFKFK4ESGQ95CK,0.7861,1,Solid Women Black Track Pants
+3,women black track pants with zip pockets,7,TKPFRAHGFDFBHZ3J,0.7767,1,Solid Women Black Track Pants
+3,women black track pants with zip pockets,8,TKSF5WHGCR4JBXYZ,0.7721,0,Regular Fit Women Black Cotton Lycra Blend Trousers
+3,women black track pants with zip pockets,9,TKPFDGYPBYPAZNXH,0.7611,1,Self Design Women Black Track Pants
+3,women black track pants with zip pockets,10,TKPFN5S8QKWKFHCM,0.7357,1,Solid Women Black Track Pants
+3,women black track pants with zip pockets,11,TKPFUY98MWHVV2W5,0.7122,0,Printed Women Black Track Pants
+4,women pure cotton t-shirt pack of 3,1,TSHFWAWKMVHVWC5P,0.8338,0,Solid Women Round Neck Multicolor T-Shirt  (Pack of 5)
+4,women pure cotton t-shirt pack of 3,2,TSHFWBWEXX3N9FHZ,0.8319,1,"Solid Women Round Neck Blue, Maroon T-Shirt  (Pack of 3)"
+4,women pure cotton t-shirt pack of 3,3,TSHFWAWKHFZDGSVX,0.8319,0,Solid Women Round Neck Multicolor T-Shirt  (Pack of 5)
+4,women pure cotton t-shirt pack of 3,4,TSHFWBWEV3J285KG,0.8316,1,Solid Women Round Neck Blue T-Shirt  (Pack of 3)
+4,women pure cotton t-shirt pack of 3,5,TSHFWBWERWBHYYJG,0.8313,1,Solid Women Round Neck Grey T-Shirt  (Pack of 3)
+4,women pure cotton t-shirt pack of 3,6,TSHFWBWECMBZ9D8A,0.8312,1,Solid Women Round Neck Black T-Shirt  (Pack of 3)
+4,women pure cotton t-shirt pack of 3,7,TSHFWAWKK2GNAQJA,0.8308,0,Solid Women Round Neck Maroon T-Shirt  (Pack of 5)
+4,women pure cotton t-shirt pack of 3,8,TSHFWBWEGZEDCABK,0.8308,1,Solid Women Round Neck Maroon T-Shirt  (Pack of 3)
+4,women pure cotton t-shirt pack of 3,9,TSHFWAWKKGYZSNHU,0.83,0,Solid Women Round Neck Grey T-Shirt  (Pack of 5)
+4,women pure cotton t-shirt pack of 3,10,TSHFVYHBZYHZGEGJ,0.8278,1,Solid Women Round Neck Multicolor T-Shirt  (Pack of 3)
+4,women pure cotton t-shirt pack of 3,11,TSHFVYHBU7AKH4E8,0.8251,1,Solid Women Round Neck Multicolor T-Shirt  (Pack of 3)
+4,women pure cotton t-shirt pack of 3,12,TSHFXS3FD6N7FDYK,0.8234,0,"Solid Women Round Neck Black, White T-Shirt  (Pack of 2)"
+4,women pure cotton t-shirt pack of 3,13,TSHFVYHB7YTVJ77M,0.8226,1,Solid Women Round Neck Multicolor T-Shirt  (Pack of 3)
+4,women pure cotton t-shirt pack of 3,14,TSHFHPJYUXBJVSQN,0.8171,0,"Self Design, Solid Women Round Neck Black T-Shirt  (Pack of 2)"
+4,women pure cotton t-shirt pack of 3,15,TSHFXS3FFH8KWZF4,0.8166,0,"Solid Women Round Neck White, Blue T-Shirt  (Pack of 2)"
+4,women pure cotton t-shirt pack of 3,16,TSHFYRYBKCSQNGGS,0.8155,0,Solid Women Round Neck White T-Shirt  (Pack of 4)
+4,women pure cotton t-shirt pack of 3,17,TSHFYRYBJFBSGCHS,0.8141,1,"Solid Women Round Neck Black, Blue, White T-Shirt  (Pack of 3)"
+4,women pure cotton t-shirt pack of 3,18,TSHFGPZ2HVZDWUHQ,0.8131,0,"Solid Women Round Neck Black, White T-Shirt  (Pack of 2)"
+4,women pure cotton t-shirt pack of 3,19,TSHFYRYBHWBHF4WU,0.8124,0,Solid Women Round Neck Blue T-Shirt  (Pack of 4)
+4,women pure cotton t-shirt pack of 3,20,TSHFYRYBGYSGFHU8,0.8118,0,"Solid Women Round Neck Black, White T-Shirt  (Pack of 4)"
+5,black running shoes for men,1,SHOEKNRJ34UCMAPA,0.9045,1,"SPRINT Running Shoes For Men  (Black, Grey)"
+5,black running shoes for men,2,SHOFN3EJHXHGSGUC,0.8818,1,RS-7250 Running Shoes For Men  (Black)
+5,black running shoes for men,3,SHOFTZFQP8W9G86F,0.7961,0,Running Shoes For Women  (Black)
+5,black running shoes for men,4,SHOFTZFPNCU4VWHK,0.7959,1,Running Shoes For Men  (Black)
+5,black running shoes for men,5,SHOFKH9ZNNNWCHGC,0.7618,0,Running Shoes For Men  (Blue)
+5,black running shoes for men,6,SHOFZP2FHH8Z6ZHC,0.7547,0,Running Shoes For Women  (Black)
+5,black running shoes for men,7,SHOFRCTVKE4P38CH,0.7527,0,"Target Full Spike Cricket Shoes For Men  (White, Black)"
+5,black running shoes for men,8,SHOFVXG5XR59AFTH,0.7426,0,Lace Up For Men  (Black)
+5,black running shoes for men,9,SHOFVJX2TP8FRR7P,0.7395,0,Lace Up For Men  (Black)
+5,black running shoes for men,10,SHOFVHY8MAYUPTZF,0.7351,0,Loafers For Men  (Black)
+5,black running shoes for men,11,SHOFUH52V5AVNHMN,0.7206,0,Loafers For Men  (Black)
+5,black running shoes for men,12,SHOFX2G6FHVNAHZN,0.7133,0,Loafers For Women  (Black)
+5,black running shoes for men,13,SHOFU9EDGSMHWJS6,0.7125,0,"VX-7.0 Running Shoes For Women  (Green, Black)"
+5,black running shoes for men,14,SHOFU9EEZG46B55M,0.712,1,"VX-7.0 Running Shoes For Men  (Maroon, Black)"
+5,black running shoes for men,15,SHOF3A22BBDQQY8F,0.709,1,"Running Shoes For Men  (Black, Grey)"
+5,black running shoes for men,16,SHOFN3ENUBVRD3ZX,0.7084,0,"RS-7050 Running Shoes For Women  (Grey, Black)"
+5,black running shoes for men,17,SHOFJGUAGAVDZ8CJ,0.7044,0,Slip On For Men  (Black)
+5,black running shoes for men,18,SHOEYF5UUUHKHN9X,0.7038,0,Running Shoes For Women  (Black)
+5,black running shoes for men,19,SRTFGZY9PZNCD3BM,0.7026,0,Printed Men Black Sports Shorts
+5,black running shoes for men,20,SHOF34H376KMSK9Y,0.7008,0,"Running Shoes For Women  (Black, Grey)"
