@@ -46,3 +46,4 @@ python -m myapp.analytics.simulate --visitors 60 --days 14 --output data/analyti
   from them without any API call.
 * The simulation uses a fixed seed (`--seed 7`), so it produces the same visitors and actions; only the dates move,
   because the simulated days end today.
+  With `--with-rag` the simulated users also load the AI summaries (one LLM call per search; off by default).

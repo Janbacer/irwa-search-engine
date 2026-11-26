@@ -179,7 +179,8 @@ The field weights, the title weight and the quality-factor weights are constants
   `ours` (default: BM25F × title factor × quality, Part 3), `bm25`, `tfidf`, `word2vec` (trained on its first use,
   about 30 s, or at start-up with `TRAIN_WORD2VEC = 1`).
 * **Sorting**: `sort=relevance|price_asc|price_desc|rating|discount`. **Filters**: `sub_category`, `min_price`,
-  `max_price`, `min_rating`, `min_discount`, `in_stock=1`. A price in the query ("shirt under 500") becomes a filter.
+  `max_price`, `min_rating`, `min_discount`, `in_stock=1`. A price in the query ("shirt under 500") becomes a filter,
+  and so do a rating ("over 4 stars") and a discount ("50% off"); "up to 70% off" is not read as a price.
 * **RAG variant**: `rag=improved` (default) or `rag=baseline` (the template's pipeline); the results page also has a
   link to show the baseline summary next to ours.
 * From Python, the general search function is `SearchEngine.search(query, method, filters, sort, page, page_size)`
@@ -202,6 +203,9 @@ python -m myapp.analytics.simulate --visitors 60 --days 14 --output data/analyti
 ANALYTICS_FILE=data/analytics_simulated.json python web_app.py
 # Windows (cmd): set ANALYTICS_FILE=data/analytics_simulated.json && python web_app.py
 ```
+Add `--with-rag` to the simulation to also load the AI summary of every results page and click some of its
+recommendations (it calls the LLM once per search: slow, and it needs the API key in `.env`). The dashboard counts
+only the traffic of the search engine: the dashboard, `/stats` and the exports are not stored as requests.
 
 ### Reproduce the results of the report
 

@@ -5,8 +5,9 @@ The search engine of the web application: one general ``search`` function on top
 ``SearchEngine.search(query, method="ours", filters=None, sort="relevance", page=1, page_size=20)``
 
 1. **Query understanding**: a price in the query ("under 500", "below rs 1000", "between 500 and 800") becomes a
-   price filter, and words that describe the price and not the product ("cheap", "budget") are dropped; then the
-   query is cleaned like the products (``preprocessing.preprocess_text``).
+   price filter, a rating ("over 4 stars") a rating filter and a discount ("50% off") a discount filter; words that
+   describe the price and not the product ("cheap", "budget") are dropped; then the query is cleaned like the
+   products (``preprocessing.preprocess_text``).
 2. **Conjunctive search** (AND, as in Parts 2 and 3): the products that contain every query term.
 3. **No results**: in a web application an empty page is a dead end, so the engine tries
    (a) a spelling suggestion for the words that are not in the vocabulary ("jens" -> "jeans") and, if there are
@@ -40,19 +41,30 @@ SORTS = {
 }
 
 
-_NUMBER = r"(?:rs\.?|inr|₹)?\s*(\d[\d,]*)\s*(?:rs\.?|rupees|inr|/-)?"
+# A price: digits not followed by "%", "off" or "stars" ("70% off" is a discount and "4 stars" a rating, not a price).
+_NOT_PRICE = r"(?![\d,]|\.\d|\s*(?:%|percent\b|per\s*cent\b|off\b|stars?\b|\*|★))"
+_NUMBER = rf"(?:rs\.?|inr|₹)?\s*(\d[\d,]*(?:\.\d+)?){_NOT_PRICE}\s*(?:rs\.?|rupees|inr|/-)?"
 PRICE_PATTERNS = [   # (regex, kind): the price expressions understood in a query
     (re.compile(rf"\bbetween\s+{_NUMBER}\s+(?:and|-|to)\s+{_NUMBER}", re.I), "between"),
     (re.compile(rf"\b(?:under|below|less than|cheaper than|up to|upto|max(?:imum)?|within)\s+{_NUMBER}", re.I), "max"),
     (re.compile(rf"\b(?:over|above|more than|min(?:imum)?|from)\s+{_NUMBER}", re.I), "min"),
 ]
 PRICE_WORDS = re.compile(r"\b(?:cheap|cheapest|budget|affordable|inexpensive|price|priced)\b", re.I)
+# "4 stars", "over 4 stars", "4+ stars", "4.5 star rating" -> minimum rating
+RATING_PATTERN = re.compile(
+    r"\b(?:(?:over|above|more than|at least|min(?:imum)?)\s+)?([1-5](?:\.\d)?)\s*\+?\s*(?:stars?|\*|★)"
+    r"(?:\s+(?:rating|rated|and above|or more|\+))?", re.I)
+# "50% off", "at least 40% discount", "up to 70% off": a discount, not a price. "up to" / "under" give no minimum.
+DISCOUNT_PATTERN = re.compile(
+    r"(?:\b(up to|upto|max(?:imum)?|under|below|less than)\s+|\b(?:over|above|more than|at least|min(?:imum)?|flat)\s+)?"
+    r"(\d{1,2})\s*(?:%|percent\b|per\s*cent\b)\s*(?:off\b|discount\b)?", re.I)
 
 
 def understand_price(query):
     """
     Price constraints written in the query: (query without them, min_price, max_price).
     "cheap cotton shirt under 500" -> ("cotton shirt", None, 500.0).
+    Discounts ("70% off") and ratings ("4 stars") are not prices: see ``understand_query``.
     """
     low, high = None, None
     for pattern, kind in PRICE_PATTERNS:
@@ -69,6 +81,27 @@ def understand_price(query):
         query = query[:match.start()] + " " + query[match.end():]
     query = PRICE_WORDS.sub(" ", query)
     return " ".join(query.split()), low, high
+
+
+def understand_query(query):
+    """
+    Everything the query says about the price, the rating and the discount, and the words left for the search:
+    (text, min_price, max_price, min_rating, min_discount).
+    "shirts over 4 stars at least 40% off under 800" -> ("shirts", None, 800.0, 4.0, 40.0).
+    "up to 70% off" is removed from the text but sets no filter (it does not ask for a minimum discount).
+    """
+    min_rating = min_discount = None
+    match = RATING_PATTERN.search(query)
+    if match:
+        min_rating = float(match.group(1))
+        query = query[:match.start()] + " " + query[match.end():]
+    match = DISCOUNT_PATTERN.search(query)
+    if match:
+        if not match.group(1):   # "50% off", "at least 50% off" (not "up to 50% off")
+            min_discount = float(match.group(2))
+        query = query[:match.start()] + " " + query[match.end():]
+    text, low, high = understand_price(query)
+    return text, low, high, min_rating, min_discount
 
 
 @dataclass
@@ -112,6 +145,8 @@ class SearchResponse:
     sort: str
     filters: SearchFilters
     query_price: tuple = (None, None)    # (min, max) price read from the query text
+    query_rating: Optional[float] = None    # minimum rating read from the query text ("over 4 stars")
+    query_discount: Optional[float] = None  # minimum discount read from the query text ("50% off")
     match_type: str = "all"              # "all", "corrected", "partial" or "none"
     corrected_query: Optional[str] = None
     matched_terms: int = 0               # for "partial": number of query terms every result contains
@@ -219,13 +254,17 @@ class SearchEngine:
         method = method if method in algorithms.METHODS else "ours"
         sort = sort if sort in SORTS else "relevance"
         filters = filters or SearchFilters()
-        text, low, high = understand_price(query)
-        if low is not None or high is not None:   # a price filter chosen on the page wins over the query
-            filters = replace(filters, min_price=filters.min_price if filters.min_price is not None else low,
-                              max_price=filters.max_price if filters.max_price is not None else high)
+        text, low, high, min_rating, min_discount = understand_query(query)
+        # a filter chosen on the page wins over the one read from the query
+        def keep(chosen, read):
+            return chosen if chosen is not None else read
+        filters = replace(filters, min_price=keep(filters.min_price, low), max_price=keep(filters.max_price, high),
+                          min_rating=keep(filters.min_rating, min_rating),
+                          min_discount=keep(filters.min_discount, min_discount))
         terms = pp.preprocess_text(text, self.index.keep_numbers)
         response = SearchResponse(query=query, terms=terms, method=method, sort=sort, filters=filters,
-                                  page_size=page_size, query_price=(low, high))
+                                  page_size=page_size, query_price=(low, high), query_rating=min_rating,
+                                  query_discount=min_discount)
 
         pids = self.match_all(terms)
         if not pids and terms and allow_fallback:

@@ -18,6 +18,9 @@ METHOD_LABELS = {"tfidf": "TF-IDF", "bm25": "BM25", "ours": "Our score", "word2v
 DWELL_BINS = [0, 10, 30, 60, 180, np.inf]
 DWELL_LABELS = ["< 10 s", "10-30 s", "30-60 s", "1-3 min", "> 3 min"]
 SHORT_CLICK_S = 10   # a click with less than 10 s on the product page is a "short click" (not satisfied)
+# endpoints that are not traffic of the search engine: the shop owner's pages and the summary loaded by the results
+# page. Since the fix they are not stored, but analytics files saved before it still contain them.
+NOT_TRAFFIC = ("dashboard", "stats", "export_csv", "export_json", "rag_summary")
 
 
 def _chart(chart, height=220):
@@ -52,6 +55,13 @@ def _fmt_seconds(seconds):
     return f"{seconds:.0f} s" if seconds < 90 else f"{seconds / 60:.1f} min"
 
 
+def _num(value, spec, suffix=""):
+    """A number formatted with ``spec`` ('.1f'...), or '–' when it is missing (no data yet)."""
+    if value is None or (isinstance(value, float) and np.isnan(value)):
+        return "–"
+    return f"{value:{spec}}{suffix}"
+
+
 def build_report(analytics, engine):
     """Indicators, charts and tables of the dashboard."""
     visitors = analytics.frame("visitors")
@@ -60,7 +70,14 @@ def build_report(analytics, engine):
     queries = analytics.frame("queries")
     clicks = analytics.frame("clicks")
     rag = analytics.frame("rag")
-    report = {"empty": queries.empty and requests.empty, "simulated_sessions": int(sessions["simulated"].sum())
+    # only the traffic of the search engine (see NOT_TRAFFIC); the request count of each session is recomputed,
+    # and sessions (and visitors) that only opened the owner's pages are left out
+    requests = requests[~requests["endpoint"].isin(NOT_TRAFFIC)]
+    sessions = sessions.assign(n_requests=sessions["session_id"].map(requests.groupby("session_id").size())
+                               .fillna(0).astype(int))
+    sessions = sessions[sessions["n_requests"] > 0]
+    visitors = visitors[visitors["visitor_id"].isin(sessions["visitor_id"])]
+    report = {"empty": requests.empty, "simulated_sessions": int(sessions["simulated"].sum())
               if not sessions.empty else 0, "n_sessions": len(sessions), "kpis": [], "charts": [], "tables": {},
               "generated": datetime.now().strftime("%d/%m/%Y %H:%M")}
     if report["empty"]:
@@ -71,13 +88,16 @@ def build_report(analytics, engine):
         frame[column] = pd.to_datetime(frame[column], format="ISO8601")
     details = clicks[clicks["target"] == "details"].copy()
     details["dwell_s"] = details["dwell_ms"].astype(float) / 1000
+    # clicks on the list of results; the rank of a click on a product picked by the AI summary is the rank of that
+    # product in the list, but the user did not reach it by reading the list, so it is left out of position bias
+    in_list = details[details["source"] != "rag"]
     first_pages = queries[queries["page"] == 1]
 
     # ------------------------------------------------------------------ key indicators
     duration = (sessions["end"] - sessions["start"]).dt.total_seconds()
     multi = sessions["n_requests"] > 1
     clicked_queries = set(details["query_id"])
-    first_click_rank = details.sort_values("timestamp").groupby("query_id")["rank"].first()
+    first_click_rank = in_list.sort_values("timestamp").groupby("query_id")["rank"].first()
     rr = [1 / first_click_rank[q] if q in first_click_rank.index and first_click_rank[q] > 0 else 0
           for q in queries["query_id"]]
     missions = queries.groupby("mission_id")
@@ -91,7 +111,7 @@ def build_report(analytics, engine):
             ("Returning visitors", _pct((sessions.groupby("visitor_id").size() > 1).sum(), len(visitors)),
              "Visitors with more than one session."),
             ("Requests", f"{len(requests):,}", "Pages and actions requested (static files excluded)."),
-            ("Requests / session", f"{sessions['n_requests'].mean():.1f}", "Average number of requests per session."),
+            ("Requests / session", _num(sessions['n_requests'].mean(), ".1f"), "Average number of requests per session."),
             ("Session length", _fmt_seconds(duration[multi].median() if multi.any() else None),
              "Median time between the first and the last request (sessions with 2+ requests)."),
             ("Bounce rate", _pct((~multi).sum(), len(sessions)), "Sessions with a single request."),
@@ -99,26 +119,27 @@ def build_report(analytics, engine):
         ("Search", [
             ("Searches", f"{len(queries):,}", "Result pages served (a new page or filter is a new search)."),
             ("Distinct queries", f"{queries['query'].str.lower().nunique():,}", "Different query texts."),
-            ("Terms / query", f"{first_pages['n_terms'].mean():.2f}", "Average number of terms after pre-processing."),
-            ("Searches / session", f"{queries.groupby('session_id').size().mean():.1f}",
+            ("Terms / query", _num(first_pages['n_terms'].astype(float).mean(), ".2f"), "Average number of terms after pre-processing."),
+            ("Searches / session", _num(queries.groupby('session_id').size().mean(), ".1f"),
              "Average number of searches in a session that searched."),
             ("Missions", f"{queries['mission_id'].nunique():,}",
-             f"Logical sessions (queries with the same goal); {missions.size().mean():.1f} searches each."),
+             f"Logical sessions (queries with the same goal); {_num(missions.size().mean(), '.1f')} searches each."),
             ("Research missions", f"{(research > 1).sum():,}", "Missions continued in a later session."),
             ("Zero results", _pct((queries["match_type"] == "none").sum(), len(queries)),
              "Searches with no product at all."),
             ("Rescued searches", _pct(queries["match_type"].isin(["corrected", "partial"]).sum(), len(queries)),
              "Searches answered by the spelling suggestion or the partial match."),
-            ("Search latency", f"{queries['latency_ms'].median():.1f} ms",
-             f"Median server time of a search (95th percentile {queries['latency_ms'].quantile(.95):.0f} ms)."),
+            ("Search latency", _num(queries['latency_ms'].astype(float).median(), ".1f", " ms"),
+             f"Median server time of a search (95th percentile "
+             f"{_num(queries['latency_ms'].astype(float).quantile(.95), '.0f', ' ms')})."),
         ]),
         ("Results", [
             ("Click-through rate", _pct(queries["query_id"].isin(clicked_queries).sum(), len(queries)),
              "Searches with at least one click on a result."),
-            ("Mean clicked rank", f"{details['rank'].mean():.1f}" if len(details) else "–",
-             "Average position of the clicked results."),
+            ("Mean clicked rank", f"{in_list['rank'].mean():.1f}" if len(in_list) else "–",
+             "Average position of the clicked results (clicks on the list)."),
             ("MRR of clicks", f"{np.mean(rr):.2f}" if rr else "–",
-             "Mean of 1 / rank of the first click (0 for searches without a click)."),
+             "Mean of 1 / rank of the first click on the list (0 for searches without one)."),
             ("Dwell time", _fmt_seconds(dwell.median() if len(dwell) else None),
              "Median time on a product page after a click."),
             ("Short clicks", _pct((dwell < SHORT_CLICK_S).sum(), len(dwell)),
@@ -130,6 +151,9 @@ def build_report(analytics, engine):
               f"fits; median {generated['latency_ms'].median() / 1000:.1f} s." if len(generated) else
               "Summaries generated by the LLM.") + (f" {len(rag) - len(generated)} not available (no API key or "
                                                    "limit reached)." if len(rag) > len(generated) else "")),
+        
+            ("Clicks on AI picks", _pct((details["source"] == "rag").sum(), len(details)),
+             "Clicks on a product page that came from a product recommended by the AI summary."),
         ]),
     ]
 
@@ -159,8 +183,8 @@ def build_report(analytics, engine):
         _bar(lengths, "terms", "searches", "number of terms", "searches", sort=None)),
         "Short queries are ambiguous (\"shirt\"); long ones are specific and more likely to have no product with all "
         "the terms. The share of long queries tells how much the fallback is needed."))
-    if len(details):
-        ranks = details["rank"].clip(upper=21).value_counts().reindex(range(1, 22), fill_value=0)
+    if len(in_list):
+        ranks = in_list["rank"].clip(upper=21).value_counts().reindex(range(1, 22), fill_value=0)
         ranks = ranks.rename_axis("rank").reset_index(name="clicks")
         ranks["rank"] = ranks["rank"].astype(str).replace({"21": "21+"})
         charts.append(("ranks", "Clicks by rank of the result", _chart(
@@ -168,6 +192,7 @@ def build_report(analytics, engine):
                  sort=[str(i) for i in range(1, 21)] + ["21+"])),
             "Position bias: users click the first results much more. If many clicks go to low ranks, the ranking "
             "puts the products people want too low."))
+    if len(details):
         buckets = pd.cut(dwell, DWELL_BINS, labels=DWELL_LABELS, right=False).value_counts().reindex(DWELL_LABELS)
         buckets = buckets.fillna(0).rename_axis("dwell").reset_index(name="clicks")
         charts.append(("dwell", "Dwell time on the product page", _chart(
@@ -176,7 +201,7 @@ def build_report(analytics, engine):
             "result did not match what the user wanted; long ones that it was worth reading."))
         by_method = queries.assign(clicked=queries["query_id"].isin(clicked_queries)).groupby("method").agg(
             searches=("query_id", "size"), ctr=("clicked", "mean")).reset_index()
-        mean_rank = details.merge(queries[["query_id", "method"]], on="query_id").groupby("method")["rank"].mean()
+        mean_rank = in_list.merge(queries[["query_id", "method"]], on="query_id").groupby("method")["rank"].mean()
         by_method["mean_clicked_rank"] = by_method["method"].map(mean_rank).round(2)
         by_method["ctr"] = (100 * by_method["ctr"]).round(1)
         by_method["algorithm"] = by_method["method"].map(METHOD_LABELS)

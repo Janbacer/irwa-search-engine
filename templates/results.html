@@ -41,7 +41,7 @@
             <h6>Rating</h6>
             <select class="custom-select custom-select-sm" name="min_rating" aria-label="Minimum rating">
                 <option value="">Any rating</option>
-                {% for r in (4.0, 3.5, 3.0) %}
+                {% for r in ([4.0, 3.5, 3.0] + ([filters.min_rating] if filters.min_rating is not none and filters.min_rating not in (4.0, 3.5, 3.0) else []))|sort(reverse=True) %}
                     <option value="{{ r }}" {{ 'selected' if filters.min_rating == r }}>{{ r }} &#9733; and more</option>
                 {% endfor %}
             </select>
@@ -49,7 +49,7 @@
             <h6>Discount</h6>
             <select class="custom-select custom-select-sm" name="min_discount" aria-label="Minimum discount">
                 <option value="">Any discount</option>
-                {% for d in (30, 50, 70) %}
+                {% for d in ([30, 50, 70] + ([filters.min_discount|int] if filters.min_discount is not none and filters.min_discount not in (30, 50, 70) else []))|sort %}
                     <option value="{{ d }}" {{ 'selected' if filters.min_discount == d }}>{{ d }} % off or more</option>
                 {% endfor %}
             </select>
@@ -94,10 +94,16 @@
         </div>
 
         {% set qmin, qmax = response.query_price %}
+        {% set read = [] %}
         {% if qmin is not none or qmax is not none %}
-            <div class="notice notice-info">Price from your query:
-                <strong>{% if qmin is not none and qmax is not none %}{{ qmin|money }} to {{ qmax|money }}{% elif qmax is not none %}up to {{ qmax|money }}{% else %}from {{ qmin|money }}{% endif %}</strong>
-                (applied as a filter; change it on the left).</div>
+            {% set _ = read.append("price " ~ (qmin|money ~ " to " ~ qmax|money if qmin is not none and qmax is not none
+                                               else ("up to " ~ qmax|money if qmax is not none else "from " ~ qmin|money))) %}
+        {% endif %}
+        {% if response.query_rating is not none %}{% set _ = read.append("rating " ~ response.query_rating ~ "+ ★") %}{% endif %}
+        {% if response.query_discount is not none %}{% set _ = read.append("discount " ~ response.query_discount|int ~ " %+") %}{% endif %}
+        {% if read %}
+            <div class="notice notice-info">From your query: <strong>{{ read|join(" · ") }}</strong>
+                (applied as {{ "a filter" if read|length == 1 else "filters" }}; change {{ "it" if read|length == 1 else "them" }} on the left).</div>
         {% endif %}
         {% if response.match_type == "corrected" %}
             <div class="notice">Showing results for <strong>{{ response.corrected_query }}</strong>.
@@ -105,6 +111,9 @@
         {% elif response.match_type == "partial" %}
             <div class="notice">No product contains all the words of <em>{{ response.query }}</em>.
                 Showing the products that contain {{ response.matched_terms }} of its {{ response.terms|unique|list|length }} words.</div>
+        {% elif response.match_type == "none" and not response.terms and read %}
+            <div class="notice">Your query says <strong>{{ read|join(" · ") }}</strong>, but not which product you want.
+                Add a product word, for example <a href="{{ search_url(q='shirt ' ~ response.query, page=None) }}">shirt {{ response.query }}</a>.</div>
         {% elif response.match_type == "none" %}
             <div class="notice">No product matches <em>{{ response.query }}</em>. Try other or fewer words.</div>
         {% endif %}
@@ -174,7 +183,7 @@
     const box = document.getElementById("summary");
     if (!box) return;
     const qid = box.dataset.qid;
-    const docUrl = (pid, rank) => `/doc/${encodeURIComponent(pid)}?qid=${qid}&rank=${rank}&page=1`;
+    const docUrl = (pid, rank) => `/doc/${encodeURIComponent(pid)}?qid=${qid}&rank=${rank}&page=1&src=rag`;
     const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
     const money = (v) => v == null ? "" : "Rs " + Math.round(v).toLocaleString("en-IN");
 

@@ -129,7 +129,11 @@ already works.
 shoes. The engine now reads price expressions (``under/below/up to $X$'', ``over/above $X$'', ``between $X$ and $Y$'',
 with or without ``Rs''), turns them into a price filter, and drops words that describe the price and not the product
 (``cheap'', ``budget''...). The query above becomes \emph{cotton shirt for men} with a maximum price of Rs~500: 519
-shirts. The results page shows the filter it read from the query (Figure~\ref{fig:results}).
+shirts. A number followed by ``\%'', ``off'' or ``stars'' is not a price: ``50\% off'' becomes a minimum discount,
+``over 4 stars'' a minimum rating, and ``up to 70\% off'' is only removed from the query (it asks for no minimum).
+Without this, ``shirts up to 70\% off'' was read as a maximum price of Rs~70 and found nothing. The results page shows
+the filters it read from the query (Figure~\ref{fig:results}); a query with only a price (``cheap under 500'') asks the
+user to add a product word.
 
 \textbf{4. Filters, sorting and pages.} The results page has filters on the structured fields of Part~1: category
 (with the number of matches of each), price range, minimum rating, minimum discount and ``only in stock''; the results
@@ -166,7 +170,10 @@ men & 14,233 & 40.4 & 46.2 & 132.3 & 41.0 & 51.1 & 50.9\\
 \end{tabular}
 \end{table}
 
-The default ranking of the web application is our score, the best one in Part~3 and again here. The other three can
+The default ranking of the web application is our score, the best one on the test queries in Part~3 and again here.
+It is not better everywhere: on the two validation queries BM25 is slightly better (NDCG@10 of 0.861 against 0.828,
+Table~\ref{tab:numbers}), so the choice rests on five test queries and should be checked with more labelled queries
+or with the clicks of real users (Section~\ref{sec:analytics}). The other three can
 be chosen on the search and results pages (or with the URL parameter \code{method}); word2vec is trained on its first
 use (about 30~s) because most users never choose it.
 
@@ -390,8 +397,9 @@ collect, how, and why.
 \toprule
 data & how & why\\
 \midrule
-HTTP requests & every request except static files and dwell-time beacons: time, path, endpoint, method, status, server
-time, referrer & traffic,
+HTTP requests & every request of a user of the search engine: time, path, endpoint, method, status, server time,
+referrer. Not stored: static files, dwell-time beacons, the summary requests (stored in their own table) and the shop
+owner's pages (dashboard, tables, exports), which are not traffic & traffic,
 errors (status) and speed of the server\\
 visitor & a random id in a cookie kept one year & returning visitors, research missions across days\\
 physical session & a session id in Flask's signed session cookie; a new one after 30~min without requests & time-based
@@ -404,8 +412,9 @@ searches, which algorithm is used\\
 missions & a query continues the current mission if it shares a non-common term with it, else it starts a new one;
 a mission that shares a term with a mission of an earlier session of the same visitor continues its research mission
 & logical sessions (bonus): how many searches a need takes\\
-clicks on results & the details page receives the query id, rank and page in its URL & click-through rate, position
-bias, which products attract\\
+clicks on results & the details page receives the query id, rank and page in its URL, and whether the link was in
+the list or in the AI summary & click-through rate, position bias, which products attract, how much the summary is
+used\\
 dwell time & the details page measures how long it is visible and sends it with \code{navigator.sendBeacon} when the
 user leaves; if no beacon arrives, the time until the next request of the session is used & satisfaction: a short
 click means the result did not fit\\
@@ -457,7 +466,9 @@ mission, research missions, zero-result rate, rescued searches (spelling correct
 (median and 95th percentile).
 \item \textbf{Results}: click-through rate (searches with a click), mean clicked rank, MRR of the clicks (mean of
 1~/~rank of the first click, 0 without a click: an online version of the MRR of Part~2), median dwell time, short clicks
-($<$~10~s), outbound clicks, RAG summaries.
+($<$~10~s), outbound clicks, RAG summaries, and the share of clicks on the products recommended by the summary. The
+clicked rank, the MRR and the position-bias chart use only the clicks on the list: a click on a recommended product
+does not come from reading the list.
 \end{itemize}
 
 The charts: searches and sessions per day, searches by hour, query length, clicks by rank (position bias), dwell
@@ -473,7 +484,9 @@ algorithm. On a results page a simulated user reads from the top (the chance to 
 clicks a result that fits its goal much more often than one that does not, stays longer on it, and sometimes goes to
 the original website. Every action is a real HTTP request to the application (Flask test client), so the simulation
 also tests the whole tracking pipeline; only the clock, the IP and the place are set with headers that the application
-accepts only in test mode. The simulated sessions are marked in the data and the dashboard says how many there are.
+accepts only in test mode. With \code{--with-rag} the simulated users also load the summary of each results page and
+sometimes click its recommendation; this calls the LLM for every search, so it is off by default. The simulated
+sessions are marked in the data and the dashboard says how many there are.
 Figures~\ref{fig:dash1} and~\ref{fig:dash2} show the dashboard after the simulation plus our own tests. The numbers
 describe the simulation, not real users: for example, the differences between algorithms in the click-through rate
 come from a few dozen simulated searches each and are not a valid comparison of the rankings; with real traffic, the

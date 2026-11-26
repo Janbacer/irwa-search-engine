@@ -216,6 +216,11 @@ Answer with this JSON object only:
         if low is not None or high is not None:
             note += (f"\n(The search kept only products priced {'from Rs %.0f ' % low if low is not None else ''}"
                      f"{'up to Rs %.0f' % high if high is not None else ''}, as the request asks.)\n")
+        if response.query_rating is not None:
+            note += f"\n(The search kept only products rated {response.query_rating:g} stars or more, as the request asks.)\n"
+        if response.query_discount is not None:
+            note += (f"\n(The search kept only products with at least {response.query_discount:.0f}% off, "
+                     f"as the request asks.)\n")
         return self.PROMPT_TEMPLATE.format(query=query, match_note=note, n=len(products),
                                            products="\n".join(self.describe(p) for p in products))
 
@@ -304,18 +309,23 @@ def first_pid(text):
 
 
 def parse_json(text):
-    """The first JSON object in ``text`` (models sometimes add text around it), or None."""
+    """The first JSON object in ``text`` (models sometimes add text around it), or None (also for a list)."""
     if not text:
         return None
     try:
-        return json.loads(text)
+        data = json.loads(text)
+        if isinstance(data, dict):
+            return data
     except ValueError:
-        match = re.search(r"\{.*\}", text, re.DOTALL)
-        if match:
-            try:
-                return json.loads(match.group())
-            except ValueError:
-                return None
+        pass
+    # text around the object, or another JSON value (a list, a string...): look for an object inside
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if match:
+        try:
+            data = json.loads(match.group())
+        except ValueError:
+            return None
+        return data if isinstance(data, dict) else None
     return None
 
 

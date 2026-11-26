@@ -52,7 +52,12 @@ analytics_data = AnalyticsData()
 rag_generator = RAGGenerator()
 # terms in more than 20 % of the products ("men", "women"...): they do not link two queries into one mission
 COMMON_TERMS = {t for t, n in search_engine.index.df.items() if n / search_engine.index.N > 0.2}
-UNTRACKED = ("static", "track_dwell")
+# not stored at all: static files, the dwell-time beacon, and the pages of the shop owner (dashboard, raw tables,
+# exports), which are not traffic of the search engine
+UNTRACKED = ("static", "track_dwell", "dashboard", "stats", "export_csv", "export_json")
+# need the session (to check that the search is the user's own) but are not page views: the RAG summary is
+# loaded by the results page itself and is stored in its own fact table (rag)
+NOT_PAGE_VIEWS = ("rag_summary",)
 
 
 # ---------------------------------------------------------------------------------------------- tracking
@@ -87,7 +92,7 @@ def start_tracking():
         request_context(session.get("sid")), request.path, simulated=simulated)
     session["sid"] = session_id
     g.visitor_id, g.session_id = visitor_id, session_id
-    if request.endpoint != "rag_summary":   # the summary is loaded by the results page itself
+    if request.endpoint not in NOT_PAGE_VIEWS:   # the summary is loaded by the results page itself
         analytics_data.close_open_click(session_id, g.now)
 
 
@@ -95,9 +100,10 @@ def start_tracking():
 def end_tracking(response):
     """Store the request (status and server time) and keep the visitor cookie for one year."""
     if getattr(g, "session_id", None):
-        analytics_data.save_request(g.now, g.session_id, g.visitor_id, request.method, request.full_path.rstrip("?"),
-                                    request.endpoint or "", response.status_code,
-                                    (time.perf_counter() - g.started) * 1000, request.referrer or "")
+        if request.endpoint not in NOT_PAGE_VIEWS:
+            analytics_data.save_request(g.now, g.session_id, g.visitor_id, request.method,
+                                        request.full_path.rstrip("?"), request.endpoint or "", response.status_code,
+                                        (time.perf_counter() - g.started) * 1000, request.referrer or "")
         response.set_cookie(VISITOR_COOKIE, g.visitor_id, max_age=365 * 24 * 3600, httponly=True, samesite="Lax")
         analytics_data.save()
     return response
@@ -127,6 +133,11 @@ def search_url(**changes):
     params.update({k: v for k, v in changes.items()})
     params = {k: v for k, v in params.items() if v not in ("", None)}
     return url_for("search") + "?" + urlencode(params)
+
+
+def click_source():
+    """Where the clicked link was: "rag" (a product recommended by the AI summary) or "results" (the list)."""
+    return "rag" if request.args.get("src") == "rag" else "results"
 
 
 app.jinja_env.globals.update(search_url=search_url, method_names=algorithms.METHOD_NAMES, sorts=SORTS)
@@ -182,7 +193,7 @@ def doc_details(pid):
     if request.args.get("qid"):
         click_id = analytics_data.save_click(g.now, g.session_id, g.visitor_id, request.args.get("qid"), pid,
                                              request.args.get("rank", 0, type=int),
-                                             request.args.get("page", 1, type=int))
+                                             request.args.get("page", 1, type=int), source=click_source())
     ix = search_engine.index
     return render_template("doc_details.html", page_title=clean(doc.title), doc=doc, click_id=click_id,
                            details=pp.flatten_details(doc.product_details), brand_full=ix.brand.get(pid),
@@ -207,7 +218,7 @@ def outbound(pid):
     doc = search_engine.corpus.get(pid) or abort(404)
     analytics_data.save_click(g.now, g.session_id, g.visitor_id, request.args.get("qid", ""), pid,
                               request.args.get("rank", 0, type=int), request.args.get("page", 1, type=int),
-                              target="original")
+                              target="original", source=click_source())
     return redirect(doc.url or url_for("doc_details", pid=pid))
 
 

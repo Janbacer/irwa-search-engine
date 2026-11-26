@@ -19,7 +19,11 @@ Behaviour model (simple, documented in the report):
 * on a results page the visitor reads from the top (cascade model): the chance to look at a result falls with its
   rank, a result that matches the goal (its title has the goal words) is clicked much more often than one that
   does not, and the dwell time on the product page is long for a match and short otherwise;
-* some satisfied visitors go on to the original website (outbound click).
+* some satisfied visitors go on to the original website (outbound click);
+* with ``--with-rag`` every first results page also loads its AI summary (``/api/summary``, as the browser does) and
+  the visitor sometimes clicks the product it recommends (a click with ``source="rag"``). This calls the LLM once
+  per search, so it needs the API key in ``.env`` and is slow (free-tier rate limits); it is off by default, and
+  without a key the summaries are stored as "unavailable".
 Clicks therefore depend on the real rankings of the engine: a ranking that shows matching products first gets more
 and higher clicks.
 """
@@ -102,7 +106,22 @@ def matches(title, words):
     return all(re.search(rf"\b{re.escape(w)}\b", title) for w in words)
 
 
-def run_mission(visitor, now, rng, mission):
+def read_summary(visitor, now, rng, qid, goal):
+    """
+    ``--with-rag``: load the AI summary of a results page; if it recommends a product that matches the goal, the
+    visitor sometimes clicks it. Returns (time, satisfied).
+    """
+    data = visitor.get(f"/api/summary?qid={qid}", now).get_json(silent=True) or {}
+    now += timedelta(seconds=rng.uniform(2, 6))   # reads the summary
+    best = data.get("best")
+    if data.get("status") == "ok" and best and matches(best.get("title", ""), goal) and rng.random() < 0.35:
+        visitor.get(f"/doc/{best['pid']}?qid={qid}&rank={best.get('rank', 0)}&page=1&src=rag", now)
+        now += timedelta(seconds=rng.lognormvariate(4.0, 0.6))
+        return now, rng.random() < 0.6
+    return now, False
+
+
+def run_mission(visitor, now, rng, mission, with_rag=False):
     """Searches and clicks of one mission. Returns the time when it ends."""
     queries, goal = mission
     # sometimes the visitor starts directly with the specific query
@@ -131,6 +150,10 @@ def run_mission(visitor, now, rng, mission):
             now += timedelta(seconds=rng.uniform(3, 10))
             continue
         satisfied = False
+        if with_rag:
+            now, satisfied = read_summary(visitor, now, rng, qid.group(1), goal)
+            if satisfied:
+                break
         for rank, (href, title) in enumerate(results, start=1):   # cascade: read from the top
             if rng.random() > 0.88 ** (rank - 1):                   # stops reading
                 break
@@ -158,8 +181,8 @@ def run_mission(visitor, now, rng, mission):
     return now
 
 
-def simulate(app, analytics, visitors=60, days=14, seed=7, end=None):
-    """Simulate ``visitors`` visitors over the last ``days`` days."""
+def simulate(app, analytics, visitors=60, days=14, seed=7, end=None, with_rag=False):
+    """Simulate ``visitors`` visitors over the last ``days`` days (``with_rag``: also load the AI summaries)."""
     rng = random.Random(seed)
     end = end or datetime.now().replace(microsecond=0)
     for number in range(visitors):
@@ -174,7 +197,7 @@ def simulate(app, analytics, visitors=60, days=14, seed=7, end=None):
             visitor.get("/", now)
             now += timedelta(seconds=rng.uniform(3, 12))
             for mission in rng.sample(MISSIONS, k=rng.choices([1, 2], weights=[65, 35])[0]):
-                now = run_mission(visitor, now, rng, mission) + timedelta(seconds=rng.uniform(5, 40))
+                now = run_mission(visitor, now, rng, mission, with_rag) + timedelta(seconds=rng.uniform(5, 40))
             if rng.random() < 0.08:
                 visitor.get("/dashboard", now)
     return analytics
@@ -187,6 +210,8 @@ def main():
     parser.add_argument("--days", type=int, default=14)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--output", default="data/analytics_simulated.json")
+    parser.add_argument("--with-rag", action="store_true",
+                        help="also load the AI summary of every first results page (calls the LLM: slow, needs a key)")
     args = parser.parse_args()
 
     os.environ["ANALYTICS_FILE"] = ""          # the simulation writes its own file at the end
@@ -195,11 +220,11 @@ def main():
     app.testing = True                          # enables the X-Sim-* headers
     analytics.path = None
     analytics.clear()
-    simulate(app, analytics, args.visitors, args.days, args.seed)
+    simulate(app, analytics, args.visitors, args.days, args.seed, with_rag=args.with_rag)
     analytics.path = args.output
     analytics.save()
     print(f"{len(analytics.visitors)} visitors, {len(analytics.sessions)} sessions, {len(analytics.queries)} searches, "
-          f"{len(analytics.clicks)} clicks -> {args.output}")
+          f"{len(analytics.clicks)} clicks, {len(analytics.rag)} summaries -> {args.output}")
 
 
 if __name__ == "__main__":

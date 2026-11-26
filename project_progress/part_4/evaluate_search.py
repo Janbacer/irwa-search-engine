@@ -13,7 +13,6 @@ Run from the repository root:  python project_progress/part_4/evaluate_search.py
 
 The tables are written to project_progress/part_4/results/.
 """
-import os
 import statistics
 import sys
 import time
@@ -166,5 +165,4 @@ def main():
 
 
 if __name__ == "__main__":
-    os.environ.setdefault("PYTHONHASHSEED", "0")
     main()

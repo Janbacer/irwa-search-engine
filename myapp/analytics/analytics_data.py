@@ -119,6 +119,7 @@ class Click:
     target: str = "details"        # "details" (our page) or "original" (the e-commerce website)
     dwell_ms: Optional[float] = None
     dwell_source: str = ""          # "beacon" (sent by the page) or "next_request" (estimated)
+    source: str = "results"         # where the link was: "results" (the list) or "rag" (the AI summary)
 
 
 @dataclass
@@ -302,12 +303,12 @@ class AnalyticsData:
             return next((q for q in reversed(self.queries) if q.query_id == query_id), None)
 
     # ------------------------------------------------------------------ clicks and dwell time
-    def save_click(self, now, session_id, visitor_id, query_id, pid, rank, page, target="details"):
+    def save_click(self, now, session_id, visitor_id, query_id, pid, rank, page, target="details", source="results"):
         """Store a click on a result. Returns its id (sent back by the details page with the dwell time)."""
         with self.lock:
             click = Click(click_id=new_id(), timestamp=now.isoformat(), query_id=query_id or "",
                           session_id=session_id, visitor_id=visitor_id, pid=pid, rank=rank or 0, page=page or 1,
-                          target=target)
+                          target=target, source=source)
             self.clicks.append(click)
             self.sessions[session_id].n_clicks += 1
             return click.click_id
