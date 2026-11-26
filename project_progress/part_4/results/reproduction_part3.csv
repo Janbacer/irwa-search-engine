@@ -1,0 +1,5 @@
+,queries with the same top 20 as Part 3
+TF-IDF + cosine,5/5
+BM25,5/5
+Our score,5/5
+word2vec + cosine,5/5

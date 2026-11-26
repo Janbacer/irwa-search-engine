@@ -1,31 +1,107 @@
 {% extends "base.html" %}
-{% block page_title %}{{ page_title }}{% endblock %}
-
+{% block container_class %}container-wide{% endblock %}
 {% block header %}
-    <!-- Next tag loads Charts.js https://www.chartjs.org/docs/latest/ -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.6.2/chart.min.js"
-            integrity="sha512-tMabqarPtykgDtdtSqCL3uLVM0gS1ZkUAVhRFu1vSEFgvB73niFQWJuvviDyBGBH22Lcau4rHB5p2K2T0Xvr6Q=="
-            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+{# Vega-Lite runtime for the Altair charts (local copies in static/vendor, so no internet is needed) #}
+<script src="{{ url_for('static', filename='vendor/vega.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/vega-lite.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/vega-embed.min.js') }}"></script>
 {% endblock %}
-
 {% block content %}
+<div class="dash-head">
+    <h1>Web analytics</h1>
+    <span class="muted">Updated {{ report.generated }} &middot; <a href="{{ url_for('stats') }}">raw data and export</a></span>
+</div>
 
-    <!--
-    Examples of what to show in Dashboard:
+{% if report.simulated_sessions %}
+<div class="notice">{{ report.simulated_sessions }} of the {{ report.n_sessions }} sessions come from the traffic
+    simulation (<code>myapp/analytics/simulate.py</code>), not from real visitors.</div>
+{% endif %}
 
-    - Ranking of visited documents (from results page)
-    - Visitor's preferred browsers
-    - Visitor's city (from IP)
-    - preferred queries ranking
-    - preferred terms
-    - etc.
+{% if report.empty %}
+    <div class="empty-state">
+        <p>No activity yet. Make a few searches and click on some results, then come back.</p>
+        <a class="btn btn-primary" href="{{ url_for('index') }}">Go to the search page</a>
+    </div>
+{% else %}
+    {% for group, items in report.kpis %}
+    <section class="kpi-group">
+        <h2>{{ group }}</h2>
+        <div class="kpis">
+            {% for name, value, help in items %}
+            <div class="kpi" title="{{ help }}">
+                <div class="kpi-value">{{ value }}</div>
+                <div class="kpi-name">{{ name }}</div>
+                <div class="kpi-help">{{ help }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endfor %}
 
-    -->
+    <section class="charts">
+        {% for chart in report.charts %}
+        <figure class="chart-card">
+            <figcaption>
+                <h3>{{ chart.title }}</h3>
+                <p>{{ chart.explanation }}</p>
+            </figcaption>
+            <div id="chart-{{ chart.id }}" class="chart"></div>
+        </figure>
+        {% endfor %}
+    </section>
 
-    <h3>Dashboard</h3>
-    <iframe src="/plot_number_of_views" width="600" height="400" style="border: none;"></iframe>
-
-
+    <section class="tables">
+        <div class="table-card">
+            <h3>Top queries</h3>
+            <table class="table table-sm">
+                <thead><tr><th>query</th><th class="num">searches</th><th class="num">results</th><th class="num">CTR</th></tr></thead>
+                <tbody>
+                {% for row in report.tables.top_queries %}
+                    <tr><td><a href="{{ url_for('search', q=row.query) }}">{{ row.query }}</a></td><td class="num">{{ row.searches }}</td><td class="num">{{ row.results }}</td><td class="num">{{ row.ctr }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            <p class="muted">First result pages only. CTR: share of these searches with a click.</p>
+        </div>
+        <div class="table-card">
+            <h3>Searches without a full match</h3>
+            <table class="table table-sm">
+                <thead><tr><th>query</th><th>outcome</th><th class="num">searches</th></tr></thead>
+                <tbody>
+                {% for row in report.tables.failed_queries %}
+                    <tr><td>{{ row.query }}</td><td>{{ {'corrected': 'spelling fixed', 'partial': 'partial match', 'none': 'no results'}[row.match_type] }}</td><td class="num">{{ row.searches }}</td></tr>
+                {% else %}
+                    <tr><td colspan="3" class="muted">Every search found products with all its words.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            <p class="muted">Words the catalogue does not have: candidates for synonyms or new products.</p>
+        </div>
+        <div class="table-card wide">
+            <h3>Most clicked products</h3>
+            <table class="table table-sm">
+                <thead><tr><th>product</th><th class="num">clicks</th><th class="num">mean rank</th><th class="num">median dwell</th></tr></thead>
+                <tbody>
+                {% for row in report.tables.top_products %}
+                    <tr><td><a href="{{ url_for('doc_details', pid=row.pid) }}">{{ row.title }}</a></td><td class="num">{{ row.clicks }}</td><td class="num">{{ row.mean_rank }}</td><td class="num">{{ row.dwell }}</td></tr>
+                {% else %}
+                    <tr><td colspan="4" class="muted">No clicks yet.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endif %}
 {% endblock %}
 
-
+{% block scripts %}
+{% if not report.empty %}
+<script>
+const specs = { {% for chart in report.charts %}"{{ chart.id }}": {{ chart.spec|safe }},{% endfor %} };
+for (const [id, spec] of Object.entries(specs)) {
+    vegaEmbed(`#chart-${id}`, spec, {actions: false, renderer: "svg"})
+        .catch(() => document.getElementById(`chart-${id}`).textContent = "The chart could not be drawn.");
+}
+</script>
+{% endif %}
+{% endblock %}

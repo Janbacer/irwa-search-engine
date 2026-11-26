@@ -1,18 +1,90 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Document Detail - IRWA Search Engine</title>
-</head>
-<body>
-<div><a href="/" >Home</a></div>
-<div><a href="/stats" >Stats</a></div>
-<div><a href="/dashboard" >Dashboard</a></div>
-<h1>Document Detail Page</h1>
-<p>This is a placeholder for document details.</p>
-<p>Here you can display more information about the document.</p>
-<p>For example, you might show the full text of the document, metadata, or other relevant details.</p>
-<p>You can also include links to related documents or resources.</p>
-<p>Feel free to customize this page to fit the needs of your application.</p>
-</body>
-</html>
+{% extends "base.html" %}
+{% block content %}
+<div class="details-top">
+    {% if back_url %}<a href="{{ back_url }}" class="back-link">&larr; Back to the results</a>{% endif %}
+</div>
+<article class="details">
+    <div class="details-gallery {{ 'gallery-empty' if not doc.images }}" data-gallery>
+        {% for image in (doc.images or [])[:6] %}
+            {# larger version of the image of the dataset (128 px); falls back to the original, then hides it #}
+            <img src="{{ image|replace('/128/128/', '/416/416/') }}" alt="Product image {{ loop.index }}" loading="lazy"
+                 onerror="imageFailed(this, '{{ image }}')">
+        {% endfor %}
+        <div class="no-image">No image available</div>
+    </div>
+    <div class="details-main">
+        <div class="muted">{{ doc.category }} &rsaquo; {{ doc.sub_category }}</div>
+        <h1 class="details-title">{{ doc.title|clean }}</h1>
+        <div class="result-meta">
+            <span class="brand-name">{{ (brand_full or doc.brand or '')|title }}</span>
+            {% if rating is not none %}<span class="rating">{{ "%.1f"|format(rating) }} &#9733;</span>{% else %}<span class="muted">not rated</span>{% endif %}
+            {% if in_stock %}<span class="badge badge-in">In stock</span>{% else %}<span class="badge badge-out">Out of stock</span>{% endif %}
+        </div>
+        <div class="result-price details-price">
+            {% if price is not none %}<span class="price">{{ price|money }}</span>{% endif %}
+            {% if actual_price and price is not none and actual_price > price %}<span class="old-price">{{ actual_price|money }}</span>{% endif %}
+            {% if discount %}<span class="discount">{{ discount|int }}% off</span>{% endif %}
+        </div>
+        <a class="btn btn-primary" href="{{ url_for('outbound', pid=doc.pid, qid=qid or '', rank=rank or 0) }}" target="_blank" rel="noopener">View on the original website &#8599;</a>
+
+        {% if doc.description %}
+            <h2 class="details-h">Description</h2>
+            <p class="details-desc">{{ doc.description|clean }}</p>
+        {% endif %}
+
+        <h2 class="details-h">Product details</h2>
+        <table class="table table-sm details-table">
+            <tbody>
+            {% for key, value in details.items() %}
+                <tr><th scope="row">{{ key }}</th><td>{{ value }}</td></tr>
+            {% else %}
+                <tr><td class="muted">No product details.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+        <h2 class="details-h">All the fields</h2>
+        <table class="table table-sm details-table">
+            <tbody>
+            <tr><th scope="row">PID</th><td><code>{{ doc.pid }}</code></td></tr>
+            <tr><th scope="row">Brand (dataset / from the URL)</th><td>{{ doc.brand or '–' }} / {{ brand_full or '–' }}</td></tr>
+            <tr><th scope="row">Category</th><td>{{ doc.category or '–' }}</td></tr>
+            <tr><th scope="row">Sub-category</th><td>{{ doc.sub_category or '–' }}</td></tr>
+            <tr><th scope="row">Seller</th><td>{{ doc.seller or '–' }}</td></tr>
+            <tr><th scope="row">Selling price</th><td>{{ price|money or '–' }}</td></tr>
+            <tr><th scope="row">Actual price</th><td>{{ actual_price|money or '–' }}</td></tr>
+            <tr><th scope="row">Discount</th><td>{{ (discount|int ~ ' %') if discount is not none else '–' }}</td></tr>
+            <tr><th scope="row">Average rating</th><td>{{ rating if rating is not none else 'not rated' }}</td></tr>
+            <tr><th scope="row">Out of stock</th><td>{{ 'yes' if not in_stock else 'no' }}</td></tr>
+            <tr><th scope="row">Crawled at</th><td>{{ crawled_at or '–' }}</td></tr>
+            <tr><th scope="row">URL</th><td class="url-cell"><a href="{{ url_for('outbound', pid=doc.pid, qid=qid or '', rank=rank or 0) }}" target="_blank" rel="noopener">{{ doc.url }}</a></td></tr>
+            </tbody>
+        </table>
+    </div>
+</article>
+{% endblock %}
+
+{% block scripts %}
+{% if click_id %}
+<script>
+/* Dwell time: time this page is visible after the click on the result, sent when the user leaves it. */
+(function () {
+    let visibleSince = document.visibilityState === "visible" ? performance.now() : null;
+    let total = 0, sent = false;
+    function pause() { if (visibleSince !== null) { total += performance.now() - visibleSince; visibleSince = null; } }
+    function send() {
+        if (sent) return;
+        pause();
+        sent = true;
+        navigator.sendBeacon("{{ url_for('track_dwell') }}",
+            new Blob([JSON.stringify({click_id: "{{ click_id }}", ms: Math.round(total)})], {type: "application/json"}));
+    }
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") pause(); else if (!sent) visibleSince = performance.now();
+    });
+    window.addEventListener("pagehide", send);
+    document.querySelectorAll("a").forEach((a) => a.addEventListener("click", send));
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,7 @@
+,Part 1 pre-processing,Part 1 pre-processing,Part 1 pre-processing,Part 1 pre-processing,numbers kept (web app),numbers kept (web app),numbers kept (web app),numbers kept (web app)
+,TF-IDF + cosine,BM25,Our score,word2vec + cosine,TF-IDF + cosine,BM25,Our score,word2vec + cosine
+Q1,0.327,0.383,0.922,0.169,0.327,0.383,0.926,0.243
+Q2,1.000,0.313,1.000,1.000,1.000,0.379,1.000,1.000
+Q3,0.961,0.964,0.983,0.817,0.961,0.964,0.983,0.806
+Q4,0.288,0.611,0.545,0.530,1.000,1.000,1.000,1.000
+Q5,0.511,0.753,1.000,0.624,0.218,0.762,1.000,0.624

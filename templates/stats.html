@@ -1,15 +1,29 @@
 {% extends "base.html" %}
-{% block page_title %}{{ page_title }}{% endblock %}
+{% block container_class %}container-wide{% endblock %}
 {% block content %}
-    <h2>Quick Stats</h2>
-    <h4>Clicked docs:</h4>
-
-    {% for doc in clicks_data %}
-        <div class="pb-3">
-            <div class="">
-                <span class="text-dark"> ({{ doc.count }} visits) </span> — id: {{ doc.pid }} — {{ doc.title }} - {{ doc.description }}
-            </div>
-        </div>
-        <hr>
-    {% endfor %}
+<div class="dash-head">
+    <h1>Analytics data</h1>
+    <span class="muted">Star schema kept in memory &middot; <a href="{{ url_for('export_json') }}">download everything (JSON)</a></span>
+</div>
+<p class="muted">Dimensions: <strong>visitors</strong> and <strong>sessions</strong> (the products dimension is the corpus,
+    by <code>pid</code>). Facts: <strong>requests</strong>, <strong>queries</strong>, <strong>clicks</strong> and
+    <strong>rag</strong>. The last 15 rows of each table are shown.</p>
+{% for name, frame in tables.items() %}
+<section class="data-table">
+    <h2>{{ name }} <span class="muted">{{ "{:,}".format(frame|length) }} rows</span>
+        <a class="export" href="{{ url_for('export_csv', name=name) }}">CSV</a></h2>
+    <div class="table-scroll">
+        <table class="table table-sm">
+            <thead><tr>{% for column in frame.columns %}<th>{{ column }}</th>{% endfor %}</tr></thead>
+            <tbody>
+            {% for row in frame.tail(15).itertuples(index=False) %}
+                <tr>{% for value in row %}<td>{{ value if value is not none else '' }}</td>{% endfor %}</tr>
+            {% else %}
+                <tr><td colspan="{{ frame.columns|length }}" class="muted">Empty.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endfor %}
 {% endblock %}

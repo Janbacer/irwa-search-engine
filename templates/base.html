@@ -1,29 +1,44 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    {# Using Bootstrap v4.6.1 #}
-    <link rel="stylesheet" href="{{ url_for('static',filename='styles/bootstrap.min.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static',filename='styles/custom.css') }}">
-    <title>{% block page_title %}{% endblock %} - IRWA Search Engine</title>
+    {# Bootstrap v4.6.1 (local copy from the course template) #}
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/custom.css') }}">
+    <title>{% block page_title %}{{ page_title }}{% endblock %} - IRWA Fashion Search</title>
     {% block header %}{% endblock %}
 </head>
 <body>
-<div class="container">
-    <div class='header text-center'>
-        <a href="/">
-            <img src="{{ url_for('static', filename='logo.png') }}" width="100" alt="UPF logo"/>
+<nav class="topbar">
+    <div class="topbar-inner {% block container_class %}container{% endblock %}">
+        <a class="brand" href="{{ url_for('index') }}">
+            <img src="{{ url_for('static', filename='logo.png') }}" height="28" alt="UPF logo">
+            <span>IRWA Fashion Search</span>
         </a>
-        <span> IRWA Search Engine </span>
+        {% block topbar_search %}{% endblock %}
+        <div class="topbar-links">
+            <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint == 'index' }}">Search</a>
+            <a href="{{ url_for('dashboard') }}" class="{{ 'active' if request.endpoint == 'dashboard' }}">Dashboard</a>
+            <a href="{{ url_for('stats') }}" class="{{ 'active' if request.endpoint == 'stats' }}">Data</a>
+        </div>
     </div>
-    <hr>
-    <div class='content'>
-        {% block content %}
-            base
-        {% endblock %}
-    </div>
-    <hr>
-    <div class='centered'>Information Retrieval and Web Analytics</div>
-</div>
+</nav>
+<main class="{{ self.container_class() }} page">
+    {% block content %}{% endblock %}
+</main>
+<footer class="footer {{ self.container_class() }}">
+    Information Retrieval and Web Analytics &middot; Universitat Pompeu Fabra &middot; Final project 2026
+</footer>
+<script>
+/* A product image that does not load: try the fallback URL, then hide it (and show the placeholder of the gallery). */
+function imageFailed(img, fallback) {
+    if (fallback && img.src !== fallback) { img.src = fallback; return; }
+    img.classList.add("img-missing");
+    const gallery = img.closest("[data-gallery]");
+    if (gallery && !gallery.querySelector("img:not(.img-missing)")) gallery.classList.add("gallery-empty");
+}
+</script>
+{% block scripts %}{% endblock %}
 </body>
 </html>

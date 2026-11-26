@@ -1,27 +1,224 @@
 {% extends "base.html" %}
-{% block page_title %}{{ page_title }}{% endblock %}
+{% block container_class %}container-wide{% endblock %}
+{% block topbar_search %}
+<form class="topbar-search" method="GET" action="{{ url_for('search') }}" role="search">
+    <input class="form-control" name="q" type="search" value="{{ response.query }}" aria-label="Search products" required>
+    <input type="hidden" name="method" value="{{ response.method }}">
+    <button class="btn btn-primary" type="submit">Search</button>
+</form>
+{% endblock %}
 {% block content %}
-    Found <strong>{{ found_counter }}</strong> results...
-    <hr>
-    {% if rag_response %}
-        <div class="mb-4 p-3" style="border: 1px solid #ccc; border-radius: 5px; background-color: #f9f9f9;">
-            <h5>AI-Generated Summary:</h5>
-            <p>{{ rag_response }}</p>
+<div class="results-layout">
+    {# ---------------------------------------------------------------- filters #}
+    <aside class="filters">
+        <form method="GET" action="{{ url_for('search') }}" id="filter-form">
+            <input type="hidden" name="q" value="{{ response.query }}">
+            <input type="hidden" name="method" value="{{ response.method }}">
+            <input type="hidden" name="sort" value="{{ response.sort }}">
+            {% if filters.sub_category %}<input type="hidden" name="sub_category" value="{{ filters.sub_category }}">{% endif %}
+
+            <h6>Category</h6>
+            <ul class="facets">
+                {% if filters.sub_category %}
+                    <li><a href="{{ search_url(sub_category=None, page=None) }}">&larr; All categories</a></li>
+                {% endif %}
+                {% for name, count in response.facets.items() %}
+                    <li class="{{ 'selected' if filters.sub_category == name }}">
+                        <a href="{{ search_url(sub_category=name, page=None) }}">{{ name }}</a> <span>{{ count }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+
+            <h6>Price (Rs)</h6>
+            <div class="price-range">
+                <input class="form-control form-control-sm" type="number" name="min_price" min="0" placeholder="min"
+                       value="{{ filters.min_price|int if filters.min_price is not none }}" aria-label="Minimum price">
+                <span>&ndash;</span>
+                <input class="form-control form-control-sm" type="number" name="max_price" min="0" placeholder="max"
+                       value="{{ filters.max_price|int if filters.max_price is not none }}" aria-label="Maximum price">
+            </div>
+
+            <h6>Rating</h6>
+            <select class="custom-select custom-select-sm" name="min_rating" aria-label="Minimum rating">
+                <option value="">Any rating</option>
+                {% for r in (4.0, 3.5, 3.0) %}
+                    <option value="{{ r }}" {{ 'selected' if filters.min_rating == r }}>{{ r }} &#9733; and more</option>
+                {% endfor %}
+            </select>
+
+            <h6>Discount</h6>
+            <select class="custom-select custom-select-sm" name="min_discount" aria-label="Minimum discount">
+                <option value="">Any discount</option>
+                {% for d in (30, 50, 70) %}
+                    <option value="{{ d }}" {{ 'selected' if filters.min_discount == d }}>{{ d }} % off or more</option>
+                {% endfor %}
+            </select>
+
+            <div class="custom-control custom-checkbox mt-3">
+                <input type="checkbox" class="custom-control-input" id="in_stock" name="in_stock" value="1"
+                       {{ 'checked' if filters.in_stock_only }}>
+                <label class="custom-control-label" for="in_stock">Only products in stock</label>
+            </div>
+            <button class="btn btn-sm btn-outline-dark btn-block mt-3" type="submit">Apply filters</button>
+            {% if filters.active() %}
+                <a class="btn btn-sm btn-link btn-block" href="{{ url_for('search', q=response.query, method=response.method) }}">Clear filters</a>
+            {% endif %}
+        </form>
+    </aside>
+
+    {# ---------------------------------------------------------------- results #}
+    <section class="results">
+        <div class="results-head">
+            <div class="results-count">
+                {% if response.total %}
+                    <strong>{{ "{:,}".format(response.total) }}</strong> product{{ 's' if response.total != 1 }}
+                    {% if response.total != response.total_matches %}<span class="muted">({{ "{:,}".format(response.total_matches) }} before filters)</span>{% endif %}
+                {% else %}
+                    No products
+                {% endif %}
+                <span class="muted">&middot; {{ "%.1f"|format(response.latency_ms) }} ms</span>
+            </div>
+            <form class="results-controls" method="GET" action="{{ url_for('search') }}">
+                {% for key, value in request.args.items() if key not in ('method', 'sort', 'page') %}
+                    <input type="hidden" name="{{ key }}" value="{{ value }}">
+                {% endfor %}
+                <label for="method-select">Ranking</label>
+                <select id="method-select" name="method" class="custom-select custom-select-sm" onchange="this.form.submit()">
+                    {% for m in methods %}<option value="{{ m }}" {{ 'selected' if m == response.method }}>{{ method_names[m] }}</option>{% endfor %}
+                </select>
+                <label for="sort-select">Sort</label>
+                <select id="sort-select" name="sort" class="custom-select custom-select-sm" onchange="this.form.submit()">
+                    {% for key, name in sorts.items() %}<option value="{{ key }}" {{ 'selected' if key == response.sort }}>{{ name }}</option>{% endfor %}
+                </select>
+            </form>
         </div>
-    {% endif %}
-    <hr>
-    {% for item in results_list %}
-        <div class="pb-3">
-            <div class="doc-title">
-                <a href="{{ item.url }}">{{ item.title }}...
+
+        {% set qmin, qmax = response.query_price %}
+        {% if qmin is not none or qmax is not none %}
+            <div class="notice notice-info">Price from your query:
+                <strong>{% if qmin is not none and qmax is not none %}{{ qmin|money }} to {{ qmax|money }}{% elif qmax is not none %}up to {{ qmax|money }}{% else %}from {{ qmin|money }}{% endif %}</strong>
+                (applied as a filter; change it on the left).</div>
+        {% endif %}
+        {% if response.match_type == "corrected" %}
+            <div class="notice">Showing results for <strong>{{ response.corrected_query }}</strong>.
+                No product contains all the words of <em>{{ response.query }}</em>.</div>
+        {% elif response.match_type == "partial" %}
+            <div class="notice">No product contains all the words of <em>{{ response.query }}</em>.
+                Showing the products that contain {{ response.matched_terms }} of its {{ response.terms|unique|list|length }} words.</div>
+        {% elif response.match_type == "none" %}
+            <div class="notice">No product matches <em>{{ response.query }}</em>. Try other or fewer words.</div>
+        {% endif %}
+
+        {# ---------- RAG summary (loaded after the page, so the results appear at once) #}
+        {% if response.page == 1 %}
+        <div class="summary" id="summary" data-qid="{{ query_id }}" data-variant="{{ rag_variant }}">
+            <div class="summary-head">
+                <span class="summary-title">AI summary</span>
+                <span class="summary-meta" id="summary-meta"></span>
+                <a href="#" class="summary-toggle" id="summary-compare">Compare with the template's summary</a>
+            </div>
+            <div id="summary-body" class="summary-body"><span class="spinner"></span> Reading the results&hellip;</div>
+            <div id="summary-baseline" class="summary-baseline" hidden></div>
+        </div>
+        {% endif %}
+
+        <ol class="result-list" start="{{ (response.page - 1) * response.page_size + 1 }}">
+        {% for item in response.results %}
+            <li class="result">
+                <a class="result-image" href="{{ url_for('doc_details', pid=item.pid, qid=query_id, rank=item.rank, page=response.page) }}" tabindex="-1">
+                    {% if item.image %}<img src="{{ item.image }}" alt="" loading="lazy" onerror="imageFailed(this)">{% endif %}
                 </a>
-            </div>
-            <div class="doc-desc">
-                {{ item.doc_date }} — {{ item.description }}
-            </div>
+                <div class="result-body">
+                    <a class="result-title" href="{{ url_for('doc_details', pid=item.pid, qid=query_id, rank=item.rank, page=response.page) }}">{{ item.title }}</a>
+                    <div class="result-meta">
+                        <span class="brand-name">{{ item.brand|title }}</span>
+                        {% if item.sub_category %}&middot; {{ item.sub_category }}{% endif %}
+                        {% if item.details.get('Color') %}&middot; {{ item.details['Color'] }}{% endif %}
+                        {% if item.average_rating is not none %}<span class="rating">{{ "%.1f"|format(item.average_rating) }} &#9733;</span>{% endif %}
+                        {% if not item.in_stock %}<span class="badge badge-out">Out of stock</span>{% endif %}
+                    </div>
+                    <div class="result-price">
+                        {% if item.selling_price is not none %}<span class="price">{{ item.selling_price|money }}</span>{% endif %}
+                        {% if item.actual_price and item.selling_price is not none and item.actual_price > item.selling_price %}
+                            <span class="old-price">{{ item.actual_price|money }}</span>
+                        {% endif %}
+                        {% if item.discount %}<span class="discount">{{ item.discount|int }}% off</span>{% endif %}
+                    </div>
+                    {% if item.description %}<p class="result-desc">{{ item.description|clean|truncate(220) }}</p>{% endif %}
+                    <div class="result-links">
+                        <a href="{{ url_for('outbound', pid=item.pid, qid=query_id, rank=item.rank, page=response.page) }}" target="_blank" rel="noopener">View on the original website &#8599;</a>
+                        <span class="muted">#{{ item.rank }} &middot; score {{ item.score }} &middot; {{ item.pid }}</span>
+                    </div>
+                </div>
+            </li>
+        {% endfor %}
+        </ol>
 
-        </div>
-
-    {% endfor %}
+        {% if response.pages > 1 %}
+        <nav class="pagination-bar" aria-label="Result pages">
+            {% if response.page > 1 %}<a href="{{ search_url(page=response.page - 1) }}">&larr; Previous</a>{% endif %}
+            {% for p in range([1, response.page - 3]|max, [response.pages, response.page + 3]|min + 1) %}
+                {% if p == response.page %}<span class="current">{{ p }}</span>{% else %}<a href="{{ search_url(page=p) }}">{{ p }}</a>{% endif %}
+            {% endfor %}
+            {% if response.page < response.pages %}<a href="{{ search_url(page=response.page + 1) }}">Next &rarr;</a>{% endif %}
+        </nav>
+        {% endif %}
+    </section>
+</div>
 {% endblock %}
 
+{% block scripts %}
+<script>
+/* Loads the RAG summary of this results page from /api/summary and renders it. */
+(function () {
+    const box = document.getElementById("summary");
+    if (!box) return;
+    const qid = box.dataset.qid;
+    const docUrl = (pid, rank) => `/doc/${encodeURIComponent(pid)}?qid=${qid}&rank=${rank}&page=1`;
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+    const money = (v) => v == null ? "" : "Rs " + Math.round(v).toLocaleString("en-IN");
+
+    function pick(p, label) {
+        return `<div class="pick"><span class="pick-label">${label}</span>
+            <a href="${docUrl(p.pid, p.rank)}">${esc(p.title)}</a>
+            <span class="muted">${money(p.price)}${p.rating != null ? " · " + p.rating.toFixed(1) + " ★" : ""}${p.in_stock ? "" : " · out of stock"}</span>
+            <div class="pick-why">${esc(p.why)}</div></div>`;
+    }
+
+    function render(data, target, meta) {
+        let html = "";
+        if (data.status === "unavailable" || data.status === "error") {
+            html = `<span class="muted">${esc(data.text || data.summary)}</span>`;
+        } else if (data.variant === "baseline") {
+            html = `<div class="baseline-text">${esc(data.text)}</div>`;
+        } else {
+            if (data.summary) html += `<p class="summary-text">${esc(data.summary)}</p>`;
+            if (data.best) html += pick(data.best, "Best match");
+            (data.alternatives || []).forEach((a) => html += pick(a, "Alternative"));
+            if (data.status === "no_good_products" && !data.summary) html += "<p>No product fits the request.</p>";
+            if (!data.best && data.text) html += `<div class="baseline-text">${esc(data.text)}</div>`;
+        }
+        target.innerHTML = html;
+        if (meta) meta.textContent = data.model && data.status !== "unavailable" && data.status !== "no_results"
+            ? `${data.model} · ${(data.latency_ms / 1000).toFixed(1)} s` : "";
+    }
+
+    function load(variant, target, meta) {
+        fetch(`/api/summary?qid=${qid}&variant=${variant}`)
+            .then((r) => r.json())
+            .then((data) => render(data, target, meta))
+            .catch(() => target.innerHTML = '<span class="muted">The summary could not be loaded.</span>');
+    }
+
+    load(box.dataset.variant, document.getElementById("summary-body"), document.getElementById("summary-meta"));
+    document.getElementById("summary-compare").addEventListener("click", (event) => {
+        event.preventDefault();
+        const target = document.getElementById("summary-baseline");
+        if (!target.hidden) { target.hidden = true; return; }
+        target.hidden = false;
+        target.innerHTML = '<div class="summary-title">Template summary (baseline)</div><div class="baseline-body"><span class="spinner"></span> Loading&hellip;</div>';
+        load("baseline", target.querySelector(".baseline-body"), null);
+    });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,9 @@
+,baseline,improved
+"relevant recommendation (Q1-Q5, T1)",4/6,6/6
+'no good products' although relevant products were retrieved (labelled queries),3/8,0/8
+correct 'no good products' (products the shop does not sell),5/5,5/5
+answers with invented PIDs,0/16,0/16
+"prices, ratings and discounts in the explanations that match the data",no data in the prompt,68/68
+LLM calls,16,15
+median latency (ms),2334,2552
+median prompt (characters),2392,4517
